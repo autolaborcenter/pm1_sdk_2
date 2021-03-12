@@ -39,4 +39,4 @@ public:
     size_t write(void *, size_t) const;
 };
 
-#endif // SERIAL_PORT_T_H
+#endif // !SERIAL_PORT_T_H
