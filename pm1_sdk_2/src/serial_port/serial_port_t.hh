@@ -10,7 +10,7 @@ class serial_port_t
 #if defined __linux
         int;
 #elif defined WIN32
-        void*;
+        void *;
 #endif // handle_t
 
     std::string _name;
@@ -30,6 +30,7 @@ public:
     ~serial_port_t();
 
     const char *name() const;
+    bool is_open() const;
 
     int open();
     void close();

@@ -8,35 +8,25 @@
 #include <sstream>
 #include <filesystem>
 
-static int baud_rate(uint32_t);
-static int ms_to_ds(uint32_t);
-
 serial_port_t::serial_port_t(std::string name)
     : _name(std::move(name)),
-      _fd(0),
-      _timeout(1) {}
+      _fd(0) {}
 
 serial_port_t::serial_port_t(serial_port_t &&others) noexcept
     : _name(std::move(others._name)),
-      _timeout(std::exchange(others._timeout, 0))
-{
-    ::close(std::exchange(_fd, std::exchange(others._fd, 0)));
-}
+      _fd(std::exchange(others._fd, 0)) {}
 
 serial_port_t &serial_port_t::operator=(serial_port_t &&others) noexcept
 {
     if (this != &others)
     {
-        ::close(_fd);
         _name = std::move(others._name);
-        _fd = std::exchange(others._fd, 0);
-        _timeout = std::exchange(others._timeout, 0);
+        ::close(std::exchange(_fd, std::exchange(others._fd, 0)));
     }
     return *this;
 }
 
-serial_port_t::
-    ~serial_port_t()
+serial_port_t::~serial_port_t()
 {
     ::close(_fd);
 }
@@ -44,6 +34,11 @@ serial_port_t::
 const char *serial_port_t::name() const
 {
     return _name.c_str();
+}
+
+bool serial_port_t::is_open() const
+{
+    return _fd;
 }
 
 int serial_port_t::open()
@@ -66,9 +61,6 @@ int serial_port_t::open()
 
     // if (tcgetattr(fd, &tty))
     //     return errno;
-
-    tty.c_cc[VTIME] = ms_to_ds(_timeout);
-    tty.c_cc[VMIN] = 0;
 
     cfsetspeed(&tty, B115200);
 
@@ -107,10 +99,8 @@ int serial_port_t::open()
 
 void serial_port_t::close()
 {
-    if (!_fd)
-        return;
-    ::close(_fd);
-    _fd = 0;
+    if (_fd)
+        ::close(std::exchange(_fd, 0));
 }
 
 size_t serial_port_t::read(void *data, size_t size) const
@@ -121,34 +111,6 @@ size_t serial_port_t::read(void *data, size_t size) const
 size_t serial_port_t::write(void *data, size_t size) const
 {
     return _fd ? ::write(_fd, data, size) : 0;
-}
-
-#define SET_ONLINE(STRUCT, WHAT)                \
-    if (_fd)                                    \
-    {                                           \
-        termios STRUCT;                         \
-                                                \
-        if (tcgetattr(_fd, &STRUCT))            \
-            return errno;                       \
-                                                \
-        WHAT;                                   \
-                                                \
-        if (tcsetattr(_fd, TCSAFLUSH, &STRUCT)) \
-            return errno;                       \
-    }
-
-int serial_port_t::set_timeout(uint32_t ms)
-{
-    SET_ONLINE(tty, tty.c_cc[VTIME] = ms_to_ds(ms))
-    _timeout = ms;
-    return 0;
-}
-
-#undef SET_ONLINE
-
-int ms_to_ds(uint32_t ms)
-{
-    return ms ? (ms + 50) / 100 : 0;
 }
 
 #endif // __linux
