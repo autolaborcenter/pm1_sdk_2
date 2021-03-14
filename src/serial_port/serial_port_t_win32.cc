@@ -10,18 +10,16 @@ serial_port_t(std::string name)
       _fd(nullptr) {}
 
 serial_port_t::
-serial_port_t(serial_port_t&& others) noexcept
+serial_port_t(serial_port_t &&others) noexcept
     : _name(std::move(others._name)),
       _fd(std::exchange(others._fd, nullptr)) {}
 
-serial_port_t&
+serial_port_t &
 serial_port_t::
-operator=(serial_port_t&& others) noexcept {
-    if (this != &others)
-    {
-        CloseHandle(_fd);
+operator=(serial_port_t &&others) noexcept {
+    if (this != &others) {
         _name = std::move(others._name);
-        _fd = std::exchange(others._fd, nullptr);
+        CloseHandle(std::exchange(_fd, std::exchange(others._fd, nullptr)));
     }
     return *this;
 }
@@ -38,12 +36,20 @@ name() const {
     return _name.c_str();
 }
 
-int 
+bool
+serial_port_t::
+is_open() const {
+    return _fd;
+}
+
+auto
 serial_port_t::
 open() {
+    constexpr static decltype(GetLastError()) SUCCESS = 0;
+    
     if (_fd)
-        return 0;
-
+        return SUCCESS;
+    
     auto path = new char[_name.size() + 5]{};
     std::strcpy(path, R"(\\.\)");
     std::strcpy(path + 4, _name.c_str());
@@ -51,46 +57,41 @@ open() {
     delete[] path;
     if (fd == INVALID_HANDLE_VALUE)
         return GetLastError();
-
-    DCB dcb{ .DCBlength = sizeof(DCB) };
-
+    
+    DCB dcb{.DCBlength = sizeof(DCB)};
+    
     dcb.BaudRate = CBR_115200;
     dcb.ByteSize = 8;
-
-    if (!SetCommState(fd, &dcb))
-    {
+    
+    if (!SetCommState(fd, &dcb)) {
         auto e = GetLastError();
         CloseHandle(fd);
         return e;
     }
-
-    COMMTIMEOUTS timeouts{};
-
+    
     _fd = fd;
-    return 0;
+    return SUCCESS;
 }
 
 void
 serial_port_t::
 close() {
-    if (!_fd)
-        return;
-    CloseHandle(_fd);
-    _fd = 0;
+    if (_fd)
+        CloseHandle(std::exchange(_fd, nullptr));
 }
 
 size_t
 serial_port_t::
-read(void* data, size_t size) const {
+read(void *data, size_t size) const {
     DWORD result;
-    return !_fd || ReadFile(_fd, data, size, &result, NULL) ? result : 0;
+    return _fd && ReadFile(_fd, data, size, &result, NULL) ? result : 0;
 }
 
 size_t
 serial_port_t::
-write(void* data, size_t size) const {
+write(void *data, size_t size) const {
     DWORD result;
-    return !_fd || WriteFile(_fd, data, size, &result, NULL) ? result : 0;
+    return _fd && WriteFile(_fd, data, size, &result, NULL) ? result : 0;
 }
 
 #endif // WIN32

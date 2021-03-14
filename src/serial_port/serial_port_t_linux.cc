@@ -41,7 +41,7 @@ bool serial_port_t::is_open() const
     return _fd;
 }
 
-int serial_port_t::open()
+auto serial_port_t::open()
 {
     if (_fd)
         return 0;
