@@ -69,6 +69,11 @@ namespace autolabor::can::pm1 {
         _MSG_TX(tcu, 7, command_timeout);
     };
     
+    using every_node = node<0x3f, 0x0f>;
+    using every_vcu = vcu<0x0f>;
+    using every_ecu = ecu<0x0f>;
+    using every_tcu = tcu<0x0f>;
+    
     #undef SPECIAL_MSG_DIALOG
     #undef MSG_DIALOG
 }

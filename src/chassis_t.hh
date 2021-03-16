@@ -5,7 +5,6 @@
 #ifndef PM1_SDK_2_CHASSIS_T_HH
 #define PM1_SDK_2_CHASSIS_T_HH
 
-#include <chrono>
 #include <string>
 
 namespace autolabor::pm1 {

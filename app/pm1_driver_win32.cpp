@@ -1,5 +1,4 @@
-#include "../src/serial_port/serial_port_t.hh"
-#include "../src/autocan/pm1.h"
+#include "../src/chassis_t.hh"
 
 #include <Windows.h>
 #include <SetupAPI.h>
@@ -8,13 +7,12 @@
 
 #include <string>
 #include <vector>
-#include <iostream>
+#include <unordered_map>
+#include <thread>
 
 using namespace autolabor;
 
 int main() {
-    auto state_tx = can::pm1::ecu<0>::state::tx;
-    
     std::vector<std::string> ports;
     {
         auto set = SetupDiGetClassDevs(&GUID_DEVINTERFACE_COMPORT, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -32,15 +30,34 @@ int main() {
         SetupDiDestroyDeviceInfoList(set);
     }
     
+    std::unordered_map<HANDLE, autolabor::pm1::chassis_t> chassis;
     for (const auto &name : ports) {
         auto p = name.find("COM");
         if (p < 0 || p >= name.size())
             continue;
         auto q = p + 2;
         while (std::isdigit(name[++q]));
-        serial_port_t port(name.substr(p, q - p));
-        std::cout << name << ": " << std::boolalpha << (port.open() == 0) << std::endl;
+        
+        auto path = R"(\\.\)" + name.substr(p, q - p);
+        
+        auto fd = CreateFile(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        if (fd == INVALID_HANDLE_VALUE)
+            continue;
+        
+        DCB dcb{.DCBlength = sizeof(DCB)};
+        
+        dcb.BaudRate = CBR_115200;
+        dcb.ByteSize = 8;
+        
+        if (!SetCommState(fd, &dcb)) {
+            CloseHandle(fd);
+            continue;
+        }
+        
+        chassis.try_emplace(fd, std::move(path), fd);
     }
+    
+    std::this_thread::sleep_for(std::chrono::seconds(500));
     
     return 0;
 }

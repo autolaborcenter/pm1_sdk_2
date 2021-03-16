@@ -4,6 +4,9 @@ project(pm1_sdk_2 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_BUILD_TYPE "Debug")
+
+add_subdirectory(control_model)
+
 find_package(Threads REQUIRED)
 
 add_library(kernel
@@ -18,6 +21,7 @@ add_library(kernel
         src/serial_port/serial_port_t_linux.cc
         src/serial_port/serial_port_t_win32.cc
         )
+target_link_libraries(kernel control_model)
 
 if (WIN32)
     add_executable(pm1_driver_win32 "app/pm1_driver_win32.cpp")
