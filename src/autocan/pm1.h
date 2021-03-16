@@ -9,17 +9,21 @@
 
 namespace autolabor::can::pm1 {
     #define MSG_DIALOG(MSG_TYPE, NAME) using NAME = dialog<MSG_TYPE>
-    #define SPECIAL_MSG_DIALOG(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
+    #define _MSG_DIALOG(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
+    #define _MSG_TX(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::tx
     
     template<auto _type, auto _index>
     struct node {
-        constexpr static auto type = _type;
-        constexpr static auto index = _index;
-        
         template<auto msg_type>
         struct dialog {
-            constexpr static header_t tx{.data{.head = 0xfe, .node_type_h = _type & 0b11, .payload = false, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}};
-            constexpr static header_t rx{.data{.head = 0xfe, .node_type_h = _type & 0b11, .payload = true, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}};
+            constexpr static header_t
+            #if __BYTE_ORDER == __LITTLE_ENDIAN
+                tx{.data{.head = 0xfe, .node_type_h = _type & 0b11, .payload = false, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}},
+                rx{.data{.head = 0xfe, .node_type_h = _type & 0b11, .payload = true, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}};
+            #elif __BYTE_ORDER == __BIG_ENDIAN
+            tx{.data{.payload = false, .node_type = _type, .node_index = _index, .msg_type = msg_type}},
+            rx{.data{.payload = true, .node_type = _type, .node_index = _index, .msg_type = msg_type}};
+            #endif
         };
         
         MSG_DIALOG(0x80, state);
@@ -33,28 +37,36 @@ namespace autolabor::can::pm1 {
         MSG_DIALOG(0x88, uptime_id);
     };
     
-    
     template<auto _index>
     struct vcu : public node<0x10, _index> {
-        SPECIAL_MSG_DIALOG(vcu, 1, battery_percent);
-        SPECIAL_MSG_DIALOG(vcu, 2, battery_time);
-        SPECIAL_MSG_DIALOG(vcu, 3, battery_quantity);
-        SPECIAL_MSG_DIALOG(vcu, 4, battery_voltage);
-        SPECIAL_MSG_DIALOG(vcu, 5, battery_current);
-        SPECIAL_MSG_DIALOG(vcu, 6, control_pad);
-        SPECIAL_MSG_DIALOG(vcu, 7, power_switch);
+        _MSG_DIALOG(vcu, 1, battery_percent);
+        _MSG_DIALOG(vcu, 2, battery_time);
+        _MSG_DIALOG(vcu, 3, battery_quantity);
+        _MSG_DIALOG(vcu, 4, battery_voltage);
+        _MSG_DIALOG(vcu, 5, battery_current);
+        _MSG_DIALOG(vcu, 6, control_pad);
+        _MSG_DIALOG(vcu, 7, power_switch);
+        _MSG_TX(vcu, 8, target_speed);
     };
     
     template<auto _index>
     struct ecu : public node<0x11, _index> {
-        SPECIAL_MSG_DIALOG(ecu, 5, current_speed);
-        SPECIAL_MSG_DIALOG(ecu, 6, current_position);
+        _MSG_TX(ecu, 1, target_speed);
+        _MSG_DIALOG(ecu, 5, current_speed);
+        _MSG_DIALOG(ecu, 6, current_position);
+        _MSG_TX(ecu, 7, encoder_reset);
+        _MSG_TX(ecu, 10, command_timeout);
     };
     
     template<auto _index>
     struct tcu : public node<0x12, _index> {
-        SPECIAL_MSG_DIALOG(tcu, 3, current_position);
-        SPECIAL_MSG_DIALOG(tcu, 5, current_speed);
+        _MSG_TX(tcu, 1, target_position);
+        _MSG_TX(tcu, 2, increment_position);
+        _MSG_DIALOG(tcu, 3, current_position);
+        _MSG_TX(tcu, 4, target_speed);
+        _MSG_DIALOG(tcu, 5, current_speed);
+        _MSG_TX(tcu, 6, set_zero);
+        _MSG_TX(tcu, 7, command_timeout);
     };
     
     #undef SPECIAL_MSG_DIALOG
