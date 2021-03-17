@@ -26,7 +26,7 @@ namespace autolabor::can {
         
         uint8_t sum = 0;
         for (; begin != end; ++begin)
-            sum += crc8[sum ^ *begin];
+            sum = crc8[sum ^ *begin];
         return sum;
     }
     

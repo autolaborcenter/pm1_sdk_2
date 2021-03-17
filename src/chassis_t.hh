@@ -6,6 +6,7 @@
 #define PM1_SDK_2_CHASSIS_T_HH
 
 #include <string>
+#include <memory>
 
 namespace autolabor::pm1 {
     class chassis_t {
@@ -19,8 +20,8 @@ namespace autolabor::pm1 {
         #endif // handle_t
         
         class implement_t;
-        
-        implement_t *_implement;
+    
+        std::shared_ptr<implement_t> _implement;
     
     public:
         chassis_t(std::string, handle_t);

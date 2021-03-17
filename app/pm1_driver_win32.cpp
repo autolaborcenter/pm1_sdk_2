@@ -37,23 +37,31 @@ int main() {
             continue;
         auto q = p + 2;
         while (std::isdigit(name[++q]));
-        
+    
         auto path = R"(\\.\)" + name.substr(p, q - p);
-        
-        auto fd = CreateFile(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    
+        auto fd = CreateFile(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
         if (fd == INVALID_HANDLE_VALUE)
             continue;
-        
-        DCB dcb{.DCBlength = sizeof(DCB)};
-        
-        dcb.BaudRate = CBR_115200;
-        dcb.ByteSize = 8;
-        
+    
+        DCB dcb{
+            .DCBlength = sizeof(DCB),
+            .BaudRate  = CBR_115200,
+            .ByteSize  = 8,
+        };
         if (!SetCommState(fd, &dcb)) {
             CloseHandle(fd);
             continue;
         }
-        
+    
+        COMMTIMEOUTS commtimeouts{
+            .ReadIntervalTimeout = 5,
+        };
+        if (!SetCommTimeouts(fd, &commtimeouts)) {
+            CloseHandle(fd);
+            continue;
+        }
+    
         chassis.try_emplace(fd, std::move(path), fd);
     }
     
