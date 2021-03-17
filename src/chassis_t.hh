@@ -18,15 +18,17 @@ namespace autolabor::pm1 {
         #else
         #error unsupported os
         #endif // handle_t
-        
+    
         class implement_t;
     
         std::shared_ptr<implement_t> _implement;
-    
+
     public:
         chassis_t(std::string, handle_t);
-        
+    
         ~chassis_t();
+    
+        std::pair<uint8_t, uint8_t> communicate(uint8_t *buffer, uint8_t size);
     };
 }
 
