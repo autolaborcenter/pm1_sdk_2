@@ -25,7 +25,7 @@ namespace autolabor::can::pm1 {
             rx{.data{.payload = true, .node_type = _type, .node_index = _index, .msg_type = msg_type}};
             #endif
         };
-        
+    
         MSG_DIALOG(0x80, state);
         MSG_DIALOG(0x81, version_id);
         MSG_DIALOG(0x82, device_id);
@@ -34,7 +34,10 @@ namespace autolabor::can::pm1 {
         MSG_DIALOG(0x85, core_hardware_version_id);
         MSG_DIALOG(0x86, extra_hardware_version_id);
         MSG_DIALOG(0x87, software_version_id);
-        MSG_DIALOG(0x88, uptime_id);
+        MSG_DIALOG(0x88, up_min);
+        MSG_DIALOG(0x89, up_times);
+        constexpr static auto lock = dialog<0xff>::tx;
+        constexpr static auto unlock = dialog<0xff>::rx;
     };
     
     template<auto _index>
@@ -73,6 +76,11 @@ namespace autolabor::can::pm1 {
     using every_vcu = vcu<0x0f>;
     using every_ecu = ecu<0x0f>;
     using every_tcu = tcu<0x0f>;
+    
+    using any_node = node<0, 0>;
+    using any_vcu = vcu<0>;
+    using any_ecu = ecu<0>;
+    using any_tcu = tcu<0>;
     
     #undef SPECIAL_MSG_DIALOG
     #undef MSG_DIALOG

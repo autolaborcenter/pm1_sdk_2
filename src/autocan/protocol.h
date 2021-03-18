@@ -11,7 +11,7 @@ namespace autolabor::can {
             
             #if __BYTE_ORDER == __LITTLE_ENDIAN
             
-            #define NODE_TYPE(HEADER) static_cast<uint8_t>(((HEADER).data.node_type_h << 4u) | (HEADER).data.node_type_l)
+            #define NODE_TYPE(HEADER) static_cast<uint8_t>(((HEADER)->data.node_type_h << 4u) | (HEADER)->data.node_type_l)
             
             uint8_t node_type_h: 2;
             uint8_t priority: 3;
@@ -23,7 +23,7 @@ namespace autolabor::can {
             
             #elif __BYTE_ORDER == __BIG_ENDIAN
             
-            #define NODE_TYPE(HEADER) ((HEADER).node_type)
+            #define NODE_TYPE(HEADER) ((HEADER)->node_type)
 
             uint8_t network : 2;
             bool payload : 1;

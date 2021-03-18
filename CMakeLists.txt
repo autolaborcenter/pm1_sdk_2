@@ -16,10 +16,6 @@ add_library(kernel
 
         src/chassis_t.hh
         src/chassis_t.cc
-
-        src/serial_port/serial_port_t.hh
-        src/serial_port/serial_port_t_linux.cc
-        src/serial_port/serial_port_t_win32.cc
         )
 target_link_libraries(kernel control_model)
 

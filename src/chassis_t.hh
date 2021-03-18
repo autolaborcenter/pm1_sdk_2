@@ -10,21 +10,12 @@
 
 namespace autolabor::pm1 {
     class chassis_t {
-        using handle_t =
-        #if defined __linux
-        int;
-        #elif defined WIN32
-        void *;
-        #else
-        #error unsupported os
-        #endif // handle_t
-    
         class implement_t;
     
         std::shared_ptr<implement_t> _implement;
 
     public:
-        chassis_t(std::string, handle_t);
+        explicit chassis_t(std::string);
     
         ~chassis_t();
     
