@@ -1,5 +1,5 @@
 #include "../src/chassis_t.hh"
-#include "../src/autocan/pm1.h"
+#include "loop_msg_t.hh"
 
 #include <Windows.h>
 #include <SetupAPI.h>
@@ -9,14 +9,14 @@
 #include <mutex>
 #include <thread>
 
-using namespace autolabor;
+using namespace autolabor::pm1;
 
 static void WINAPI write_callback(DWORD, DWORD, LPOVERLAPPED);
 
 static void WINAPI read_callback(DWORD, DWORD, LPOVERLAPPED);
 
 struct read_context_t {
-    pm1::chassis_t *chassis;
+    chassis_t *chassis;
     HANDLE handle;
     uint8_t buffer[128];
     uint8_t size;
@@ -64,23 +64,23 @@ int main() {
             CloseHandle(fd);
             continue;
         }
-        
+    
         COMMTIMEOUTS commtimeouts{.ReadIntervalTimeout = 5};
         if (!SetCommTimeouts(fd, &commtimeouts)) {
             CloseHandle(fd);
             continue;
         }
-        
+    
         ++port_count;
-        std::shared_ptr<pm1::chassis_t> ptr(
-            new pm1::chassis_t(std::move(path)),
-            [fd, &port_count, &signal](pm1::chassis_t *p) {
+        std::shared_ptr<chassis_t> ptr(
+            new chassis_t(std::move(path)),
+            [fd, &port_count, &signal](chassis_t *p) {
                 delete p;
                 CloseHandle(fd);
                 if (!--port_count)
                     signal.notify_all();
             });
-        
+    
         // to read
         std::thread([ptr, fd] {
             read_context_t context{.chassis = ptr.get(), .handle = fd, .buffer{}, .size = 0,};
@@ -93,35 +93,14 @@ int main() {
         
         // to write
         std::thread([ptr = std::move(ptr), fd] {
-            uint8_t buffer[4 * 6]{};
-            #define SET_HEADER(N) *reinterpret_cast<can::header_t *>(buffer + (N)) = can::pm1
-            SET_HEADER(0)::every_tcu::current_position::tx;
-            SET_HEADER(6)::every_ecu::current_position::tx;
-            SET_HEADER(12)::every_node::state::tx;
-            SET_HEADER(18)::every_vcu::battery_percent::tx;
-            #undef SET_HEADER
-            for (auto i = 0; i < sizeof(buffer); i += 6)
-                buffer[i + 5] = can::crc_calculate(buffer + i + 1, buffer + i + 5);
+            auto msg = loop_msg_t();
             auto t0 = std::chrono::steady_clock::now();
             for (uint64_t i = 0;; ++i) {
-                using namespace std::chrono_literals;
-                constexpr static auto PERIOD = 40ms;
-                constexpr static uint32_t
-                    N0 = 10s / PERIOD,
-                    N1 = 400ms / PERIOD,
-                    N2 = 2;
-                auto size = i % N0 == 0
-                            ? 24
-                            : i % N1 == 0
-                              ? 18
-                              : i % N2 == 0
-                                ? 12
-                                : 6;
-                t0 += PERIOD;
-                auto overlapped = new OVERLAPPED{.hEvent = new uint8_t[size]};
-                std::memcpy(overlapped->hEvent, buffer, size);
+                auto[buffer, size] = msg[i];
+                t0 += loop_msg_t::PERIOD;
+                auto overlapped = new OVERLAPPED{.hEvent = buffer};
                 WriteFileEx(fd, overlapped->hEvent, size, overlapped, &write_callback);
-                if (SleepEx(100, true) != WAIT_IO_COMPLETION)
+                if (SleepEx(loop_msg_t::PERIOD.count(), true) != WAIT_IO_COMPLETION)
                     break;
                 std::this_thread::sleep_until(t0);
             }

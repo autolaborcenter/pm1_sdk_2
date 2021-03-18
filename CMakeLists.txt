@@ -20,9 +20,13 @@ add_library(kernel
 target_link_libraries(kernel control_model)
 
 if (WIN32)
-    add_executable(pm1_driver_win32 "app/pm1_driver_win32.cpp")
+    add_executable(pm1_driver_win32 app/pm1_driver_win32.cpp
+            app/loop_msg_t.hh
+            app/loop_msg_t.cc)
     target_link_libraries(pm1_driver_win32 kernel)
 elseif (UNIX)
-    add_executable(pm1_driver_linux "app/pm1_driver_linux.cpp")
+    add_executable(pm1_driver_linux app/pm1_driver_linux.cpp
+            app/loop_msg_t.hh
+            app/loop_msg_t.cc)
     target_link_libraries(pm1_driver_linux kernel)
 endif ()
