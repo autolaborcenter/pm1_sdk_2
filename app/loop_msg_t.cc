@@ -7,6 +7,7 @@
 #include "../src/autocan/pm1.h"
 
 #include <chrono>
+#include <iostream>
 
 namespace autolabor::pm1 {
     loop_msg_t::loop_msg_t() : _bytes{} {

@@ -18,11 +18,10 @@ namespace autolabor::can::pm1 {
         struct dialog {
             constexpr static header_t
             #if __BYTE_ORDER == __LITTLE_ENDIAN
-                tx{.data{.head = 0xfe, .node_type_h = _type & 0b11, .payload = false, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}},
-                rx{.data{.head = 0xfe, .node_type_h = _type & 0b11, .payload = true, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}};
+                tx{.data{.head = 0xfe, .node_type_h = (_type >> 4) & 0b11, .payload = false, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}},
+                rx{.data{.head = 0xfe, .node_type_h = (_type >> 4) & 0b11, .payload = true, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}};
             #elif __BYTE_ORDER == __BIG_ENDIAN
-            tx{.data{.payload = false, .node_type = _type, .node_index = _index, .msg_type = msg_type}},
-            rx{.data{.payload = true, .node_type = _type, .node_index = _index, .msg_type = msg_type}};
+            #error
             #endif
         };
     

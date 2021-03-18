@@ -11,10 +11,10 @@ extern "C" {
 
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 #include <iostream>
 
 namespace autolabor::pm1 {
-    
     class chassis_t::implement_t {
         
         // config
@@ -56,16 +56,28 @@ namespace autolabor::pm1 {
             auto p = slices.begin();
             auto ptr = *p;
             for (++p; p != slices.end(); ptr = *p++) {
-                constexpr static auto STATE = can::pm1::any_node::state::rx.data.msg_type;
-            
+                using namespace can::pm1;
+                constexpr static auto STATE = any_node::state::rx.data.msg_type;
+                constexpr static can::header_t MASK{.data{.head = 0xff, .node_type_h = 0b11, .payload = true, .node_type_l = 0b1111, .msg_type = 0xff}};
+    
                 auto header = reinterpret_cast<const can::header_t *>(ptr);
                 auto node = controller_t{.data{.type = NODE_TYPE(header), .index = header->data.node_index}};
-                switch (header->data.msg_type) {
-                    case STATE:
-                        _states[node.key] = ptr[5];
-                        release = release || ptr[5] != 1;
-                        std::cout << std::hex << +node.data.type << '[' << +node.data.index << "]: " << +ptr[5] << std::endl;
-                        break;
+                if (header->data.msg_type == STATE) {
+                    _states[node.key] = ptr[5];
+                    release = release || ptr[5] != 1;
+                } else if (!((header->key ^ any_tcu::current_position::rx.key) & MASK.key)) {
+                    uint8_t data[2];
+                    std::reverse_copy(ptr + 5, ptr + 7, data);
+                    auto rudder = *reinterpret_cast<int16_t *>(data);
+                    if (node.data.index == 0)
+                        std::cout << "R0 " << rudder << std::endl;
+                } else if (!((header->key ^ any_ecu::current_position::rx.key) & MASK.key)) {
+                    uint8_t data[4];
+                    std::reverse_copy(ptr + 5, ptr + 9, data);
+                    auto pulse = *reinterpret_cast<int32_t *>(data);
+                    std::cout << "P" << +header->data.node_index << ' ' << pulse << std::endl;
+                } else {
+                    std::cout << std::hex << "0x" << +node.data.type << '[' << +node.data.index << "]: " << +header->data.msg_type << std::endl;
                 }
             }
             auto end = (size -= ptr - buffer);
