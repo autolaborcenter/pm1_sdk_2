@@ -9,8 +9,8 @@
 
 namespace autolabor::can::pm1 {
     #define MSG_DIALOG(MSG_TYPE, NAME) using NAME = dialog<MSG_TYPE>
-    #define _MSG_DIALOG(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
-    #define _MSG_TX(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::tx
+    #define MSG_DIALOG_(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
+    #define MSG_TX_(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::rx
     
     template<auto _type, auto _index>
     struct node {
@@ -41,34 +41,34 @@ namespace autolabor::can::pm1 {
     
     template<auto _index>
     struct vcu : public node<0x10, _index> {
-        _MSG_DIALOG(vcu, 1, battery_percent);
-        _MSG_DIALOG(vcu, 2, battery_time);
-        _MSG_DIALOG(vcu, 3, battery_quantity);
-        _MSG_DIALOG(vcu, 4, battery_voltage);
-        _MSG_DIALOG(vcu, 5, battery_current);
-        _MSG_DIALOG(vcu, 6, control_pad);
-        _MSG_DIALOG(vcu, 7, power_switch);
-        _MSG_TX(vcu, 8, target_speed);
+        MSG_DIALOG_(vcu, 1, battery_percent);
+        MSG_DIALOG_(vcu, 2, battery_time);
+        MSG_DIALOG_(vcu, 3, battery_quantity);
+        MSG_DIALOG_(vcu, 4, battery_voltage);
+        MSG_DIALOG_(vcu, 5, battery_current);
+        MSG_DIALOG_(vcu, 6, control_pad);
+        MSG_DIALOG_(vcu, 7, power_switch);
+        MSG_TX_(vcu, 8, target_speed);
     };
     
     template<auto _index>
     struct ecu : public node<0x11, _index> {
-        _MSG_TX(ecu, 1, target_speed);
-        _MSG_DIALOG(ecu, 5, current_speed);
-        _MSG_DIALOG(ecu, 6, current_position);
-        _MSG_TX(ecu, 7, encoder_reset);
-        _MSG_TX(ecu, 10, command_timeout);
+        MSG_TX_(ecu, 1, target_speed);
+        MSG_DIALOG_(ecu, 5, current_speed);
+        MSG_DIALOG_(ecu, 6, current_position);
+        MSG_TX_(ecu, 7, encoder_reset);
+        MSG_TX_(ecu, 10, command_timeout);
     };
     
     template<auto _index>
     struct tcu : public node<0x12, _index> {
-        _MSG_TX(tcu, 1, target_position);
-        _MSG_TX(tcu, 2, increment_position);
-        _MSG_DIALOG(tcu, 3, current_position);
-        _MSG_TX(tcu, 4, target_speed);
-        _MSG_DIALOG(tcu, 5, current_speed);
-        _MSG_TX(tcu, 6, set_zero);
-        _MSG_TX(tcu, 7, command_timeout);
+        MSG_TX_(tcu, 1, target_position);
+        MSG_TX_(tcu, 2, increment_position);
+        MSG_DIALOG_(tcu, 3, current_position);
+        MSG_TX_(tcu, 4, target_speed);
+        MSG_DIALOG_(tcu, 5, current_speed);
+        MSG_TX_(tcu, 6, set_zero);
+        MSG_TX_(tcu, 7, command_timeout);
     };
     
     using every_node = node<0x3f, 0x0f>;
