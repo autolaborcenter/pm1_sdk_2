@@ -57,6 +57,10 @@ namespace autolabor::pm1 {
             return _alive && clock::now() < _rudder_received + std::chrono::milliseconds(200);
         }
     
+        [[nodiscard]] uint8_t battery_percent() const {
+            return _battery_percent;
+        }
+    
         void close() {
             _alive = false;
         }
@@ -78,33 +82,33 @@ namespace autolabor::pm1 {
                 using namespace can::pm1;
                 constexpr static auto STATE = any_node::state::rx.data.msg_type;
                 constexpr static can::header_t MASK{.data{.head = 0xff, .node_type_h = 0b11, .payload = true, .node_type_l = 0b1111, .msg_type = 0xff}};
-            
+    
                 auto header = reinterpret_cast<const can::header_t *>(ptr);
                 auto node = controller_t{.data{.type = NODE_TYPE(header), .index = header->data.node_index}};
                 auto data = ptr + 5;
-            
+    
                 if (header->data.msg_type == STATE) {
-                
+        
                     _states[node.key] = *data;
                     release = release || *data != 1;
-                
+        
                 } else if (!((header->key ^ any_tcu::current_position::rx.key) & MASK.key)) {
-                
+        
                     if (node.data.index == 0) {
                         int16_t pulse;
                         std::reverse_copy(data, data + sizeof pulse, reinterpret_cast<uint8_t *>(&pulse));
                         rudder = RAD_OF(pulse > 4095 ? 4095 : pulse < -4095 ? -4095 : pulse, default_rudder_k);
                     }
-                
+        
                 } else if (!((header->key ^ any_ecu::current_position::rx.key) & MASK.key)) {
-                
+        
                     int32_t pulse;
                     std::reverse_copy(data, data + sizeof pulse, reinterpret_cast<uint8_t *>(&pulse));
-                
+        
                 } else if (!((header->key ^ any_vcu::battery_percent::rx.key) & MASK.key))
-                
+        
                     _battery_percent = *data;
-            
+    
             }
             std::memcpy(buffer, ptr, size -= ptr - buffer);
             auto end = buffer + size;
@@ -135,7 +139,7 @@ namespace autolabor::pm1 {
                     end = to_stream<int16_t>(end, PULSES_OF(_target.rudder, default_rudder_k));
                 }
             }
-            return {size, end - buffer};
+            return {size, static_cast<uint8_t>(end - buffer)};
         }
     };
     
@@ -149,6 +153,10 @@ namespace autolabor::pm1 {
     
     bool chassis_t::alive() const {
         return _implement->alive();
+    }
+    
+    uint8_t chassis_t::battery_percent() const {
+        return _implement->battery_percent();
     }
     
     void chassis_t::set_velocity(float v, float w) {

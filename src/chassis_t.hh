@@ -22,6 +22,8 @@ namespace autolabor::pm1 {
     
         [[nodiscard]] bool alive() const;
     
+        [[nodiscard]] uint8_t battery_percent() const;
+    
         void close();
     
         void set_velocity(float v, float w);
