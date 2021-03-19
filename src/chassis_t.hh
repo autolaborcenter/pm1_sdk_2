@@ -14,11 +14,19 @@ namespace autolabor::pm1 {
         implement_t *_implement;
 
     public:
-        explicit chassis_t(std::string);
+        chassis_t();
     
         ~chassis_t();
     
         std::pair<uint8_t, uint8_t> communicate(uint8_t *buffer, uint8_t size);
+    
+        [[nodiscard]] bool alive() const;
+    
+        void close();
+    
+        void set_velocity(float v, float w);
+    
+        void set_physical(float speed, float rudder);
     };
 }
 

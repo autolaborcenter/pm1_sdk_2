@@ -6,6 +6,7 @@
 
 #pragma comment (lib, "setupapi.lib")
 
+#include <unordered_map>
 #include <mutex>
 #include <thread>
 
@@ -40,7 +41,8 @@ int main() {
         SetupDiDestroyDeviceInfoList(set);
     }
     
-    std::atomic_size_t port_count = 0;
+    std::unordered_map<std::string, chassis_t> chassis;
+    std::mutex mutex;
     std::condition_variable signal;
     for (const auto &name : ports) {
         auto p = name.find("COM");
@@ -64,54 +66,55 @@ int main() {
             CloseHandle(fd);
             continue;
         }
-    
+        
         COMMTIMEOUTS commtimeouts{.ReadIntervalTimeout = 5};
         if (!SetCommTimeouts(fd, &commtimeouts)) {
             CloseHandle(fd);
             continue;
         }
-    
-        ++port_count;
-        std::shared_ptr<chassis_t> ptr(
-            new chassis_t(std::move(path)),
-            [fd, &port_count, &signal](chassis_t *p) {
+        
+        auto chassis_ptr = &chassis.try_emplace(path).first->second;
+        std::shared_ptr<HANDLE> fd_ptr(
+            new HANDLE(fd),
+            [path, &chassis, &mutex, &signal](HANDLE *p) {
+                CloseHandle(*p);
                 delete p;
-                CloseHandle(fd);
-                if (!--port_count)
+                std::unique_lock<std::mutex> lock(mutex);
+                chassis.erase(path);
+                if (chassis.empty()) {
+                    lock.unlock();
                     signal.notify_all();
+                }
             });
-    
-        // to read
-        std::thread([ptr, fd] {
-            read_context_t context{.chassis = ptr.get(), .handle = fd, .buffer{}, .size = 0,};
+        
+        std::thread([chassis_ptr, fd_ptr] {
+            read_context_t context{.chassis = chassis_ptr, .handle = *fd_ptr, .buffer{}, .size = 0,};
             OVERLAPPED overlapped;
             do {
                 overlapped = {.hEvent = &context};
-                ReadFileEx(fd, context.buffer + context.size, sizeof(context.buffer) - context.size, &overlapped, &read_callback);
+                ReadFileEx(*fd_ptr, context.buffer + context.size, sizeof(context.buffer) - context.size, &overlapped, &read_callback);
             } while (SleepEx(500, true) == WAIT_IO_COMPLETION);
+            chassis_ptr->close();
         }).detach();
         
-        // to write
-        std::thread([ptr = std::move(ptr), fd] {
+        std::thread([chassis_ptr, fd_ptr] {
             auto msg = loop_msg_t();
             auto t0 = std::chrono::steady_clock::now();
-            for (uint64_t i = 0;; ++i) {
+            for (uint64_t i = 0; chassis_ptr->alive(); ++i) {
                 auto[buffer, size] = msg[i];
                 t0 += loop_msg_t::PERIOD;
                 auto overlapped = new OVERLAPPED{.hEvent = buffer};
-                WriteFileEx(fd, overlapped->hEvent, size, overlapped, &write_callback);
+                WriteFileEx(*fd_ptr, overlapped->hEvent, size, overlapped, &write_callback);
                 if (SleepEx(loop_msg_t::PERIOD.count(), true) != WAIT_IO_COMPLETION)
                     break;
                 std::this_thread::sleep_until(t0);
             }
+            chassis_ptr->close();
         }).detach();
     }
     
-    if (port_count) {
-        std::mutex mutex;
-        std::unique_lock<std::mutex> lock(mutex);
-        signal.wait(lock);
-    }
+    std::unique_lock<std::mutex> lock(mutex);
+    while (!chassis.empty()) signal.wait(lock);
     
     return 0;
 }
