@@ -124,7 +124,7 @@ void WINAPI write_callback(DWORD, DWORD, LPOVERLAPPED overlapped) {
 void WINAPI read_callback(DWORD error_code, DWORD actual, LPOVERLAPPED overlapped) {
     if (!error_code) {
         auto context = reinterpret_cast<read_context_t *>(overlapped->hEvent);
-        auto[i, j] = context->chassis->communicate(context->buffer, context->size += actual);
+        auto[i, j] = context->chassis->communicate(context->buffer, context->size + actual);
         context->size = i;
         if (j > i) {
             auto size = j - i;
