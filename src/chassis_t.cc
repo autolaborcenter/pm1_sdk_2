@@ -45,7 +45,7 @@ namespace autolabor::pm1 {
         implement_t()
             : chassis_config(default_config),
               optimize_width(pi_f / 4),
-              accelerate(.5f),
+              accelerate(.8f),
               _battery_percent{},
               _target_set(clock::time_point::min()),
               _rudder_received(clock::now()),

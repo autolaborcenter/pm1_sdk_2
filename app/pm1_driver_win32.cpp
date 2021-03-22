@@ -124,7 +124,6 @@ int main() {
         
         enum class STATE { IDLE, V, B, } state = STATE::IDLE;
         
-        std::cout << "xxx" << std::endl;
         while (std::cin >> temp) {
             switch (state) {
                 case STATE::IDLE:
