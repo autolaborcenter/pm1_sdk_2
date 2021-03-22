@@ -1,6 +1,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include <cstdint>
 #include <vector>
 
 namespace autolabor::can {

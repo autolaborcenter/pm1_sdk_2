@@ -21,12 +21,13 @@ target_link_libraries(kernel control_model)
 
 if (WIN32)
     add_executable(pm1_driver_win32 app/pm1_driver_win32.cpp
-            app/loop_msg_t.hh
-            app/loop_msg_t.cc)
+            app/pm1_driver_common.h
+            app/pm1_driver_common.cpp)
     target_link_libraries(pm1_driver_win32 kernel)
 elseif (UNIX)
+    find_package(Threads)
     add_executable(pm1_driver_linux app/pm1_driver_linux.cpp
-            app/loop_msg_t.hh
-            app/loop_msg_t.cc)
-    target_link_libraries(pm1_driver_linux kernel)
+            app/pm1_driver_common.h
+            app/pm1_driver_common.cpp)
+    target_link_libraries(pm1_driver_linux kernel ${CMAKE_THREAD_LIBS_INIT})
 endif ()

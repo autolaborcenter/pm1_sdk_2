@@ -1,15 +1,9 @@
-#include "../src/chassis_t.hh"
-#include "loop_msg_t.hh"
+#include "pm1_driver_common.h"
 
 #include <Windows.h>
 #include <SetupAPI.h>
 
 #pragma comment (lib, "setupapi.lib")
-
-#include <unordered_map>
-#include <mutex>
-#include <thread>
-#include <iostream>
 
 using namespace autolabor::pm1;
 
@@ -74,7 +68,7 @@ int main() {
             continue;
         }
         
-        auto chassis_ptr = &chassis.try_emplace(path).first->second;
+        auto chassis_ptr = &chassis.try_emplace(path.substr(4)).first->second;
         std::shared_ptr<HANDLE> fd_ptr(
             new HANDLE(fd),
             [path, &chassis, &mutex, &signal](HANDLE *p) {
@@ -113,89 +107,8 @@ int main() {
             chassis_ptr->close();
         }).detach();
     }
-    
-    std::thread([&mutex, &signal, &chassis] {
-        using namespace std::chrono;
-        using namespace std::chrono_literals;
-        
-        std::string target, temp;
-        float v = NAN;
-        steady_clock::time_point t0;
-        
-        enum class STATE { IDLE, V, B, } state = STATE::IDLE;
-        
-        while (std::cin >> temp) {
-            switch (state) {
-                case STATE::IDLE:
-                    if (temp.size() == 1)
-                        switch (temp[0]) {
-                            case 'N': {
-                                std::unique_lock<decltype(mutex)> lock(mutex);
-                                for (const auto &[name, _] : chassis)
-                                    std::cout << name.substr(4) << ' ';
-                                std::cout << std::endl;
-                            }
-                                break;
-                            case 'V':
-                                t0 = steady_clock::now();
-                                state = STATE::V;
-                                break;
-                            case 'B':
-                                t0 = steady_clock::now();
-                                state = STATE::B;
-                                break;
-                        }
-                    break;
-                case STATE::V: { // velocity
-                    if (steady_clock::now() > t0 + 20ms) {
-                        state = STATE::IDLE;
-                        break;
-                    }
-                    if (target.empty()) {
-                        target = std::move(temp);
-                        break;
-                    }
-                    float value;
-                    try {
-                        value = std::stof(temp);
-                    } catch (...) {
-                        state = STATE::IDLE;
-                        break;
-                    }
-                    if (std::isinf(value)) {
-                        state = STATE::IDLE;
-                        break;
-                    }
-                    if (std::isnan(v))
-                        v = value;
-                    else {
-                        std::unique_lock<std::mutex> lock(mutex);
-                        auto p = chassis.find(R"(\\.\)" + target);
-                        if (p != chassis.end())
-                            p->second.set_velocity(v, value);
-                        lock.unlock();
-                        target.clear();
-                        v = NAN;
-                        state = STATE::IDLE;
-                    }
-                    break;
-                }
-                case STATE::B: { // battery
-                    std::unique_lock<std::mutex> lock(mutex);
-                    auto p = chassis.find(R"(\\.\)" + temp);
-                    if (p != chassis.end())
-                        std::cout << +p->second.battery_percent() << std::endl;
-                    state = STATE::IDLE;
-                    break;
-                }
-            }
-        }
-        {
-            std::unique_lock<std::mutex> lock(mutex);
-            chassis.clear();
-        }
-        signal.notify_all();
-    }).detach();
+
+    launch_parser(mutex, signal, chassis).detach();
     
     std::unique_lock<std::mutex> lock(mutex);
     while (!chassis.empty()) signal.wait(lock);

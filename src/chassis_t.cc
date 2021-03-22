@@ -10,9 +10,11 @@ extern "C" {
 #include "../control_model/optimization.h"
 }
 
+#include <cmath>
 #include <chrono>
 #include <unordered_map>
 #include <algorithm>
+#include <cstring>
 
 namespace autolabor::pm1 {
     class chassis_t::implement_t {
