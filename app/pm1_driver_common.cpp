@@ -46,15 +46,18 @@ namespace autolabor::pm1 {
             float v = NAN;
             steady_clock::time_point t0;
             
-            enum class STATE { IDLE, V, B, } state = STATE::IDLE;
+            enum class STATE { IDLE, V, } state = STATE::IDLE;
             
             while (std::cin >> temp) {
+                if (state != STATE::IDLE && steady_clock::now() > t0 + 20ms)
+                    state = STATE::IDLE;
                 switch (state) {
                     case STATE::IDLE:
                         if (temp.size() == 1)
                             switch (temp[0]) {
                                 case 'N': {
                                     std::unique_lock<std::mutex> lock(mutex);
+                                    std::cout << "N ";
                                     for (const auto &[name, _] : chassis)
                                         std::cout << name << ' ';
                                     std::cout << std::endl;
@@ -64,17 +67,17 @@ namespace autolabor::pm1 {
                                     t0 = steady_clock::now();
                                     state = STATE::V;
                                     break;
-                                case 'B':
-                                    t0 = steady_clock::now();
-                                    state = STATE::B;
+                                case 'B': {
+                                    std::unique_lock<std::mutex> lock(mutex);
+                                    std::cout << "B ";
+                                    for (const auto &[name, object] : chassis)
+                                        std::cout << name << ' ' << +object.battery_percent() << ' ';
+                                    std::cout << std::endl;
+                                }
                                     break;
                             }
                         break;
                     case STATE::V: { // velocity
-                        if (steady_clock::now() > t0 + 20ms) {
-                            state = STATE::IDLE;
-                            break;
-                        }
                         if (target.empty()) {
                             target = std::move(temp);
                             break;
@@ -103,14 +106,6 @@ namespace autolabor::pm1 {
                             v = NAN;
                             state = STATE::IDLE;
                         }
-                        break;
-                    }
-                    case STATE::B: { // battery
-                        std::unique_lock<std::mutex> lock(mutex);
-                        auto p = chassis.find(temp);
-                        if (p != chassis.end())
-                            std::cout << +p->second.battery_percent() << std::endl;
-                        state = STATE::IDLE;
                         break;
                     }
                 }
