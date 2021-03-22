@@ -67,35 +67,35 @@ int main() {
             CloseHandle(fd);
             continue;
         }
-        
-        auto chassis_ptr = &chassis.try_emplace(path.substr(4)).first->second;
+    
+        auto map_iterator = chassis.try_emplace(path.substr(4)).first;
         std::shared_ptr<HANDLE> fd_ptr(
             new HANDLE(fd),
-            [path, &chassis, &mutex, &signal](HANDLE *p) {
+            [map_iterator, &chassis, &mutex, &signal](HANDLE *p) {
                 CloseHandle(*p);
                 delete p;
                 std::unique_lock<std::mutex> lock(mutex);
-                chassis.erase(path);
+                chassis.erase(map_iterator);
                 if (chassis.empty()) {
                     lock.unlock();
                     signal.notify_all();
                 }
             });
-        
-        std::thread([chassis_ptr, fd_ptr] {
-            read_context_t context{.chassis = chassis_ptr, .handle = *fd_ptr, .buffer{}, .size = 0,};
+    
+        std::thread([ptr = &map_iterator->second, fd_ptr] {
+            read_context_t context{.chassis = ptr, .handle = *fd_ptr, .buffer{}, .size = 0,};
             OVERLAPPED overlapped;
             do {
                 overlapped = {.hEvent = &context};
                 ReadFileEx(*fd_ptr, context.buffer + context.size, sizeof(context.buffer) - context.size, &overlapped, &read_callback);
-            } while (SleepEx(500, true) == WAIT_IO_COMPLETION);
-            chassis_ptr->close();
+            } while (SleepEx(500, true) == WAIT_IO_COMPLETION && ptr->alive());
+            ptr->close();
         }).detach();
-        
-        std::thread([chassis_ptr, fd_ptr] {
+    
+        std::thread([ptr = &map_iterator->second, fd_ptr] {
             auto msg = loop_msg_t();
             auto t0 = std::chrono::steady_clock::now();
-            for (uint64_t i = 0; chassis_ptr->alive(); ++i) {
+            for (uint64_t i = 0; ptr->alive(); ++i) {
                 auto[buffer, size] = msg[i];
                 t0 += loop_msg_t::PERIOD;
                 auto overlapped = new OVERLAPPED{.hEvent = buffer};
@@ -104,10 +104,10 @@ int main() {
                     break;
                 std::this_thread::sleep_until(t0);
             }
-            chassis_ptr->close();
+            ptr->close();
         }).detach();
     }
-
+    
     launch_parser(mutex, signal, chassis).detach();
     
     std::unique_lock<std::mutex> lock(mutex);
@@ -124,7 +124,7 @@ void WINAPI write_callback(DWORD, DWORD, LPOVERLAPPED overlapped) {
 void WINAPI read_callback(DWORD error_code, DWORD actual, LPOVERLAPPED overlapped) {
     if (!error_code) {
         auto context = reinterpret_cast<read_context_t *>(overlapped->hEvent);
-        auto[i, j] = context->chassis->communicate(context->buffer, context->size += actual);
+        auto[i, j] = context->chassis->communicate(context->buffer, context->size + actual);
         context->size = i;
         if (j > i) {
             auto size = j - i;
