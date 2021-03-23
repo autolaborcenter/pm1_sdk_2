@@ -15,8 +15,7 @@ add_library(kernel
         src/autocan/parse.cpp
 
         src/chassis_t.hh
-        src/chassis_t.cc
-        )
+        src/chassis_t.cc)
 target_link_libraries(kernel control_model)
 
 if (WIN32)
@@ -26,8 +25,16 @@ if (WIN32)
     target_link_libraries(pm1_driver_win32 kernel)
 elseif (UNIX)
     find_package(Threads)
-    add_executable(pm1_driver_linux app/pm1_driver_linux.cpp
-            app/pm1_driver_common.h
-            app/pm1_driver_common.cpp)
-    target_link_libraries(pm1_driver_linux kernel ${CMAKE_THREAD_LIBS_INIT})
+    EXECUTE_PROCESS(COMMAND uname -m OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE architecture)
+    if(architecture STREQUAL "aarch64")
+        add_executable(pm1_driver_aarch64 app/pm1_driver_linux.cpp
+                app/pm1_driver_common.h
+                app/pm1_driver_common.cpp)
+        target_link_libraries(pm1_driver_aarch64 kernel ${CMAKE_THREAD_LIBS_INIT})
+    else()
+        add_executable(pm1_driver_linux app/pm1_driver_linux.cpp
+                app/pm1_driver_common.h
+                app/pm1_driver_common.cpp)
+        target_link_libraries(pm1_driver_linux kernel ${CMAKE_THREAD_LIBS_INIT})
+    endif()
 endif ()
