@@ -65,15 +65,17 @@ int main()
 
         std::thread([ptr = &map_iterator->second, fd_ptr] {
             uint8_t buffer[64];
-            uint8_t size;
+            uint8_t size = 0;
             do
             {
-                auto n = read(*fd_ptr, buffer + size, sizeof buffer - size);
+                auto n = read(*fd_ptr, buffer + size, sizeof(buffer) - size);
                 if (n <= 0)
                     break;
-                auto [i, j] = ptr->communicate(buffer, size + n);
-                size = i;
-                if (j > i && write(*fd_ptr, buffer + i, j - i) <= 0)
+                auto buffer_ = buffer;
+                auto size_ = static_cast<uint8_t>(size + n);
+                ptr->communicate(buffer_, size_);
+                size = buffer_ - buffer;
+                if (size_ && write(*fd_ptr, buffer_, size_) <= 0)
                     break;
             } while (ptr->alive());
             ptr->close();
