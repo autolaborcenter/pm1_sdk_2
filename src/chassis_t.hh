@@ -18,6 +18,10 @@ namespace autolabor::pm1 {
     
         ~chassis_t();
     
+        /// | parameter | in                     | out
+        /// | --------- | ---------------------- | -
+        /// | buffer    | head of received bytes | head of bytes to send
+        /// | size      | size of received bytes | size of bytes to send
         void communicate(uint8_t *&buffer, uint8_t &size);
     
         [[nodiscard]] bool alive() const;

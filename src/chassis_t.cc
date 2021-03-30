@@ -72,9 +72,9 @@ namespace autolabor::pm1 {
             _target = target;
         }
     
-        std::pair<uint8_t, uint8_t> communicate(uint8_t *&buffer, uint8_t &size) {
+        void communicate(uint8_t *&buffer, uint8_t &size) {
             auto release = false;
-            float rudder = NAN;
+            auto rudder = NAN;
             auto now = clock::now();
         
             auto slices = can::split(buffer, buffer + size);
@@ -112,8 +112,8 @@ namespace autolabor::pm1 {
                     _battery_percent = *data;
             
             }
-            std::memcpy(buffer, ptr, ptr - buffer);
-            auto end = buffer = const_cast<uint8_t *>(ptr);
+            std::memcpy(buffer, ptr, size -= ptr - buffer);
+            auto end = buffer += size;
             if (release) {
                 *reinterpret_cast<can::header_t *>(end) = can::pm1::every_node::unlock;
                 end = to_stream<uint8_t>(end, 0xff);
