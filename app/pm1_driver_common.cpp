@@ -37,16 +37,20 @@ namespace autolabor::pm1 {
     }
     
     
-    std::thread launch_parser(std::mutex &mutex, std::condition_variable &signal, std::unordered_map<std::string, chassis_t> &chassis) {
+    std::thread launch_parser(
+        std::mutex &mutex,
+        std::condition_variable &signal,
+        std::unordered_map<std::string, chassis_t> &chassis
+    ) {
         return std::thread([&mutex, &signal, &chassis] {
             using namespace std::chrono;
             using namespace std::chrono_literals;
             
             std::string target, temp;
-            float v = NAN;
+            float p0 = NAN;
             steady_clock::time_point t0;
             
-            enum class STATE { IDLE, V, } state = STATE::IDLE;
+            enum class STATE { IDLE, V, P } state = STATE::IDLE;
             
             while (std::cin >> temp) {
                 if (state != STATE::IDLE && steady_clock::now() > t0 + 20ms)
@@ -67,6 +71,10 @@ namespace autolabor::pm1 {
                                     t0 = steady_clock::now();
                                     state = STATE::V;
                                     break;
+                                case 'P':
+                                    t0 = steady_clock::now();
+                                    state = STATE::P;
+                                    break;
                                 case 'B': {
                                     std::unique_lock<std::mutex> lock(mutex);
                                     std::cout << "B ";
@@ -80,6 +88,7 @@ namespace autolabor::pm1 {
                     case STATE::V: { // velocity
                         if (target.empty()) {
                             target = std::move(temp);
+                            p0 = NAN;
                             break;
                         }
                         float value;
@@ -94,16 +103,46 @@ namespace autolabor::pm1 {
                             state = STATE::IDLE;
                             break;
                         }
-                        if (std::isnan(v))
-                            v = value;
+                        if (std::isnan(p0))
+                            p0 = value;
                         else {
                             std::unique_lock<std::mutex> lock(mutex);
                             auto p = chassis.find(target);
                             if (p != chassis.end())
-                                p->second.set_velocity(v, value);
+                                p->second.set_velocity(p0, value);
                             lock.unlock();
                             target.clear();
-                            v = NAN;
+                            state = STATE::IDLE;
+                        }
+                        break;
+                    }
+                    case STATE::P: { // physical
+                        if (target.empty()) {
+                            target = std::move(temp);
+                            p0 = NAN;
+                            break;
+                        }
+                        float value;
+                        try {
+                            value = std::stof(temp);
+                        }
+                        catch (...) {
+                            state = STATE::IDLE;
+                            break;
+                        }
+                        if (std::isinf(value)) {
+                            state = STATE::IDLE;
+                            break;
+                        }
+                        if (std::isnan(p0))
+                            p0 = value;
+                        else {
+                            std::unique_lock<std::mutex> lock(mutex);
+                            auto p = chassis.find(target);
+                            if (p != chassis.end())
+                                p->second.set_physical(p0, value);
+                            lock.unlock();
+                            target.clear();
                             state = STATE::IDLE;
                         }
                         break;

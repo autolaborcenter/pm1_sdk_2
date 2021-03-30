@@ -19,3 +19,25 @@ struct physical optimize(struct physical target,
                    : fmaxf(current.speed - acceleration, result.speed);
     return result;
 }
+
+void limit_in_velocity(struct physical *physical,
+                       float max_v,
+                       float max_w,
+                       const struct chassis_config_t *chassis) {
+    struct velocity temp = physical_to_velocity(*physical, chassis);
+    physical->speed /= fmaxf(1, fmaxf(fabsf(temp.v / max_v),
+                                      fabsf(temp.w / max_w)));
+}
+
+void limit_in_physical(struct physical *physical,
+                       float max_wheel_speed) {
+    physical->speed /= fmaxf(1, fabsf(physical->speed / max_wheel_speed));
+}
+
+void limit_by_struct(struct physical *physical,
+                     float k,
+                     const struct chassis_config_t *chassis) {
+    struct velocity temp = physical_to_velocity(*physical, chassis);
+    float max_w = k * physical->speed / chassis->length;
+    physical->speed /= fmaxf(1, fabsf(temp.w / max_w));
+}
