@@ -18,7 +18,7 @@ namespace autolabor::pm1 {
     
         ~chassis_t();
     
-        std::pair<uint8_t, uint8_t> communicate(uint8_t *buffer, uint8_t size);
+        void communicate(uint8_t *&buffer, uint8_t &size);
     
         [[nodiscard]] bool alive() const;
     

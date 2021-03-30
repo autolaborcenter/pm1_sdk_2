@@ -124,12 +124,13 @@ void WINAPI write_callback(DWORD, DWORD, LPOVERLAPPED overlapped) {
 void WINAPI read_callback(DWORD error_code, DWORD actual, LPOVERLAPPED overlapped) {
     if (!error_code) {
         auto context = reinterpret_cast<read_context_t *>(overlapped->hEvent);
-        auto[i, j] = context->chassis->communicate(context->buffer, context->size + actual);
-        context->size = i;
-        if (j > i) {
-            auto size = j - i;
+        auto buffer = context->buffer;
+        auto size = static_cast<uint8_t>(context->size + actual);
+        context->chassis->communicate(buffer, size);
+        context->size = buffer - context->buffer;
+        if (size) {
             overlapped = new OVERLAPPED{.hEvent = new uint8_t[size]};
-            std::memcpy(overlapped->hEvent, context->buffer + i, size);
+            std::memcpy(overlapped->hEvent, buffer, size);
             WriteFileEx(context->handle, overlapped->hEvent, size, overlapped, &write_callback);
             SleepEx(INFINITE, true);
         }

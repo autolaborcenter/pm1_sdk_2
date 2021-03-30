@@ -72,7 +72,7 @@ namespace autolabor::pm1 {
             _target = target;
         }
     
-        std::pair<uint8_t, uint8_t> communicate(uint8_t *buffer, uint8_t size) {
+        std::pair<uint8_t, uint8_t> communicate(uint8_t *&buffer, uint8_t &size) {
             auto release = false;
             float rudder = NAN;
             auto now = clock::now();
@@ -84,55 +84,55 @@ namespace autolabor::pm1 {
                 using namespace can::pm1;
                 constexpr static auto STATE = any_node::state::rx.data.msg_type;
                 constexpr static can::header_t MASK{.data{.head = 0xff, .node_type_h = 0b11, .payload = true, .node_type_l = 0b1111, .msg_type = 0xff}};
-    
+            
                 auto header = reinterpret_cast<const can::header_t *>(ptr);
                 auto node = controller_t{.data{.type = NODE_TYPE(header), .index = header->data.node_index}};
                 auto data = ptr + 5;
-    
+            
                 if (header->data.msg_type == STATE) {
-        
+                
                     _states[node.key] = *data;
                     release = release || *data != 1;
-        
+                
                 } else if (!((header->key ^ any_tcu::current_position::rx.key) & MASK.key)) {
-        
+                
                     if (node.data.index == 0) {
                         int16_t pulse;
                         std::reverse_copy(data, data + sizeof pulse, reinterpret_cast<uint8_t *>(&pulse));
                         rudder = RAD_OF(pulse > 4095 ? 4095 : pulse < -4095 ? -4095 : pulse, default_rudder_k);
                     }
-        
+                
                 } else if (!((header->key ^ any_ecu::current_position::rx.key) & MASK.key)) {
-        
+                
                     int32_t pulse;
                     std::reverse_copy(data, data + sizeof pulse, reinterpret_cast<uint8_t *>(&pulse));
-        
+                
                 } else if (!((header->key ^ any_vcu::battery_percent::rx.key) & MASK.key))
-        
+                
                     _battery_percent = *data;
-    
+            
             }
-            std::memcpy(buffer, ptr, size -= ptr - buffer);
-            auto end = buffer + size;
+            std::memcpy(buffer, ptr, ptr - buffer);
+            auto end = buffer = const_cast<uint8_t *>(ptr);
             if (release) {
                 *reinterpret_cast<can::header_t *>(end) = can::pm1::every_node::unlock;
                 end = to_stream<uint8_t>(end, 0xff);
             }
             if (!std::isnan(rudder)) {
                 using namespace std::chrono_literals;
-    
+            
                 auto last_received = std::exchange(_rudder_received, clock::now());
                 auto should_stop = _rudder_received > _target_set + 200ms;
-    
+            
                 if (std::isnan(_target.rudder) || should_stop)
                     _target = {0, rudder};
-    
+            
                 if (!should_stop || _internal_speed != 0) {
                     auto period = std::chrono::duration<float, std::ratio<1>>(_rudder_received - last_received).count();
                     auto optimized = optimize(_target, {_internal_speed, rudder}, optimize_width, accelerate * period);
                     _internal_speed = optimized.speed;
                     auto wheels = physical_to_wheels(optimized, &chassis_config);
-        
+                
                     *reinterpret_cast<can::header_t *>(end) = can::pm1::ecu<0>::target_speed;
                     end = to_stream<int32_t>(end, PULSES_OF(wheels.left, default_wheel_k));
                     *reinterpret_cast<can::header_t *>(end) = can::pm1::ecu<1>::target_speed;
@@ -141,7 +141,7 @@ namespace autolabor::pm1 {
                     end = to_stream<int16_t>(end, PULSES_OF(_target.rudder, default_rudder_k));
                 }
             }
-            return {size, static_cast<uint8_t>(end - buffer)};
+            size = static_cast<uint8_t>(end - buffer);
         }
     };
     
@@ -149,8 +149,8 @@ namespace autolabor::pm1 {
     
     chassis_t::~chassis_t() { delete _implement; }
     
-    std::pair<uint8_t, uint8_t> chassis_t::communicate(uint8_t *buffer, uint8_t size) {
-        return _implement->communicate(buffer, size);
+    void chassis_t::communicate(uint8_t *&buffer, uint8_t &size) {
+        _implement->communicate(buffer, size);
     }
     
     bool chassis_t::alive() const {
