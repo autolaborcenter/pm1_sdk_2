@@ -32,9 +32,9 @@ elseif (UNIX)
                 app/pm1_driver_common.cpp)
         target_link_libraries(pm1_driver_aarch64 kernel ${CMAKE_THREAD_LIBS_INIT})
     else()
-        add_executable(pm1_driver_linux app/pm1_driver_linux.cpp
+        add_executable(pm1_driver_unix app/pm1_driver_linux.cpp
                 app/pm1_driver_common.h
                 app/pm1_driver_common.cpp)
-        target_link_libraries(pm1_driver_linux kernel ${CMAKE_THREAD_LIBS_INIT})
+        target_link_libraries(pm1_driver_unix kernel ${CMAKE_THREAD_LIBS_INIT})
     endif()
 endif ()

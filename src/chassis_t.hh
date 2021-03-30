@@ -5,8 +5,6 @@
 #ifndef PM1_SDK_2_CHASSIS_T_HH
 #define PM1_SDK_2_CHASSIS_T_HH
 
-#include <string>
-
 namespace autolabor::pm1 {
     class chassis_t {
         class implement_t;
@@ -18,11 +16,15 @@ namespace autolabor::pm1 {
     
         ~chassis_t();
     
-        std::pair<uint8_t, uint8_t> communicate(uint8_t *buffer, uint8_t size);
+        /// | parameter | in                     | out
+        /// | --------- | ---------------------- | -
+        /// | buffer    | head of received bytes | head of bytes to send
+        /// | size      | size of received bytes | size of bytes to send
+        void communicate(unsigned char *&buffer, unsigned char &size);
     
         [[nodiscard]] bool alive() const;
     
-        [[nodiscard]] uint8_t battery_percent() const;
+        [[nodiscard]] unsigned char battery_percent() const;
     
         void close();
     

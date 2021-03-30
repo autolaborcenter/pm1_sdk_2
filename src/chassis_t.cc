@@ -42,12 +42,13 @@ namespace autolabor::pm1 {
 
     public:
         chassis_config_t chassis_config;
-        float optimize_width, accelerate;
+        float optimize_width, accelerate, ratio_tail_physical_speed;
     
         implement_t()
             : chassis_config(default_config),
               optimize_width(pi_f / 4),
               accelerate(.8f),
+              ratio_tail_physical_speed(1.0f),
               _battery_percent{},
               _target_set(clock::time_point::min()),
               _rudder_received(clock::now()),
@@ -72,9 +73,9 @@ namespace autolabor::pm1 {
             _target = target;
         }
     
-        std::pair<uint8_t, uint8_t> communicate(uint8_t *buffer, uint8_t size) {
+        void communicate(uint8_t *&buffer, uint8_t &size) {
             auto release = false;
-            float rudder = NAN;
+            auto rudder = NAN;
             auto now = clock::now();
         
             auto slices = can::split(buffer, buffer + size);
@@ -113,7 +114,7 @@ namespace autolabor::pm1 {
     
             }
             std::memcpy(buffer, ptr, size -= ptr - buffer);
-            auto end = buffer + size;
+            auto end = buffer += size;
             if (release) {
                 *reinterpret_cast<can::header_t *>(end) = can::pm1::every_node::unlock;
                 end = to_stream<uint8_t>(end, 0xff);
@@ -130,6 +131,7 @@ namespace autolabor::pm1 {
                 if (!should_stop || _internal_speed != 0) {
                     auto period = std::chrono::duration<float, std::ratio<1>>(_rudder_received - last_received).count();
                     auto optimized = optimize(_target, {_internal_speed, rudder}, optimize_width, accelerate * period);
+                    limit_by_struct(&optimized, ratio_tail_physical_speed, &chassis_config);
                     _internal_speed = optimized.speed;
                     auto wheels = physical_to_wheels(optimized, &chassis_config);
         
@@ -141,7 +143,7 @@ namespace autolabor::pm1 {
                     end = to_stream<int16_t>(end, PULSES_OF(_target.rudder, default_rudder_k));
                 }
             }
-            return {size, static_cast<uint8_t>(end - buffer)};
+            size = static_cast<uint8_t>(end - buffer);
         }
     };
     
@@ -149,8 +151,8 @@ namespace autolabor::pm1 {
     
     chassis_t::~chassis_t() { delete _implement; }
     
-    std::pair<uint8_t, uint8_t> chassis_t::communicate(uint8_t *buffer, uint8_t size) {
-        return _implement->communicate(buffer, size);
+    void chassis_t::communicate(uint8_t *&buffer, uint8_t &size) {
+        _implement->communicate(buffer, size);
     }
     
     bool chassis_t::alive() const {
