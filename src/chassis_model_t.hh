@@ -18,7 +18,7 @@ namespace autolabor::pm1 {
         float
             _optimize_width = pi_f / 4,
             _acceleration = .8f,
-            _ratio_tail_physical_speed = .8f;
+            _ratio_tail_physical_speed = 1.2f;
 
     public:
         constexpr static auto CONTROL_PERIOD = std::chrono::milliseconds(20);

@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/joystick.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 
 #include <cstring>
@@ -43,7 +44,7 @@ public:
 class steering_t::context_t {
     std::string _name_event, _name_js;
 
-    int _event, _js;
+    int _event, _js, _epoll;
 
     state_t _state;
 
@@ -54,7 +55,7 @@ class steering_t::context_t {
 
     void value_updated(float &speed, float &rudder) const {
         auto [rudder_, speed_] = _state.to_float();
-        update_autocenter(0x1000 + 0x6000 * std::abs(speed_));
+        update_autocenter(0x2000 + 0x4000 * std::abs(speed_));
         speed = speed_;
         rudder = rudder_;
     }
@@ -65,6 +66,7 @@ public:
           _name_js(js),
           _event(0),
           _js(0),
+          _epoll(epoll_create1(0)),
           _state{} {}
 
     context_t(context_t const &) = delete;
@@ -73,12 +75,13 @@ public:
     context_t &operator=(context_t &&) = delete;
 
     ~context_t() {
+        ::close(_epoll);
         ::close(_event);
         ::close(_js);
     }
 
     bool open() {
-        if (_event != 0)
+        if (_event)
             return true;
 
         std::filesystem::path js_path("/dev/input/");
@@ -102,13 +105,18 @@ public:
 
         _event = event;
         _js = js;
+        epoll_event epoll{.events = EPOLLIN, .data{.u32 = static_cast<uint32_t>(js)}};
+        epoll_ctl(_epoll, EPOLL_CTL_ADD, js, &epoll);
         update_autocenter(0x8000);
 
         return true;
     }
 
     void close() {
+        if (!_event)
+            return;
         _state = {};
+        epoll_ctl(_epoll, EPOLL_CTL_DEL, _js, nullptr);
         ::close(std::exchange(_event, 0));
         ::close(std::exchange(_js, 0));
     }
@@ -116,8 +124,14 @@ public:
     bool wait_event(float &speed, float &rudder) {
         while (true) {
             js_event event{};
-            if (read(_js, &event, sizeof(js_event)) < 0)
+            epoll_event epoll{};
+            auto n = epoll_wait(_epoll, &epoll, 1, 100);
+            if (!n)
+                return true;
+            if (read(epoll.data.u32, &event, sizeof(js_event)) < 0) {
+                close();
                 return false;
+            }
 
             switch (event.type) {
                 case 1:
