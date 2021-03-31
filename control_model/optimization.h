@@ -18,7 +18,7 @@
 struct physical optimize(struct physical target,
                          struct physical current,
                          float optimize_width,
-                         float acceleration);
+                         float stepover);
 
 /** 在速度空间中限速 */
 void limit_in_velocity(struct physical *,

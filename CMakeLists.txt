@@ -15,7 +15,10 @@ add_library(kernel
         src/autocan/parse.cpp
 
         src/chassis_t.hh
-        src/chassis_t.cc)
+        src/chassis_t.cc
+
+        src/chassis_model_t.hh
+        src/chassis_model_t.cc)
 target_link_libraries(kernel control_model)
 
 if (WIN32)

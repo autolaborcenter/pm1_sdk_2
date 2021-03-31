@@ -3,18 +3,19 @@
 //
 
 #include "chassis_t.hh"
+
 #include "autocan/pm1.h"
+#include "chassis_model_t.hh"
 
 extern "C" {
 #include "../control_model/motor_map.h"
-#include "../control_model/optimization.h"
 }
 
-#include <cmath>
 #include <chrono>
+#include <cmath>
+#include <cstring>
 #include <unordered_map>
 #include <algorithm>
-#include <cstring>
 
 namespace autolabor::pm1 {
     class chassis_t::implement_t {
@@ -41,15 +42,10 @@ namespace autolabor::pm1 {
         }
 
     public:
-        chassis_config_t chassis_config;
-        float optimize_width, accelerate, ratio_tail_physical_speed;
+        chassis_model_t model;
     
         implement_t()
-            : chassis_config(default_config),
-              optimize_width(pi_f / 4),
-              accelerate(.8f),
-              ratio_tail_physical_speed(1.0f),
-              _battery_percent{},
+            : _battery_percent(0),
               _target_set(clock::time_point::min()),
               _rudder_received(clock::now()),
               _internal_speed(0),
@@ -84,7 +80,13 @@ namespace autolabor::pm1 {
             for (++p; p != slices.end(); ptr = *p++) {
                 using namespace can::pm1;
                 constexpr static auto STATE = any_node::state::rx.data.msg_type;
-                constexpr static can::header_t MASK{.data{.head = 0xff, .node_type_h = 0b11, .payload = true, .node_type_l = 0b1111, .msg_type = 0xff}};
+                constexpr static can::header_t MASK{.data{
+                    .head = 0xff,
+                    .node_type_h = 0b11,
+                    .payload = true,
+                    .node_type_l = 0b1111,
+                    .msg_type = 0xff,
+                }};
     
                 auto header = reinterpret_cast<const can::header_t *>(ptr);
                 auto node = controller_t{.data{.type = NODE_TYPE(header), .index = header->data.node_index}};
@@ -122,18 +124,16 @@ namespace autolabor::pm1 {
             if (!std::isnan(rudder)) {
                 using namespace std::chrono_literals;
     
-                auto last_received = std::exchange(_rudder_received, clock::now());
+                _rudder_received = now;
                 auto should_stop = _rudder_received > _target_set + 200ms;
     
                 if (std::isnan(_target.rudder) || should_stop)
                     _target = {0, rudder};
     
                 if (!should_stop || _internal_speed != 0) {
-                    auto period = std::chrono::duration<float, std::ratio<1>>(_rudder_received - last_received).count();
-                    auto optimized = optimize(_target, {_internal_speed, rudder}, optimize_width, accelerate * period);
-                    limit_by_struct(&optimized, ratio_tail_physical_speed, &chassis_config);
+                    auto optimized = model.optimize(_target, {_internal_speed, rudder});
+                    auto wheels = model.to_wheels(optimized);
                     _internal_speed = optimized.speed;
-                    auto wheels = physical_to_wheels(optimized, &chassis_config);
         
                     *reinterpret_cast<can::header_t *>(end) = can::pm1::ecu<0>::target_speed;
                     end = to_stream<int32_t>(end, PULSES_OF(wheels.left, default_wheel_k));
@@ -164,7 +164,7 @@ namespace autolabor::pm1 {
     }
     
     void chassis_t::set_velocity(float v, float w) {
-        _implement->set_target(velocity_to_physical({v, w}, &_implement->chassis_config));
+        _implement->set_target(_implement->model.from_velocity({v, w}));
     }
     
     void chassis_t::set_physical(float speed, float rudder) {
