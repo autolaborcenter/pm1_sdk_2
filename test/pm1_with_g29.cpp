@@ -1,5 +1,6 @@
-#include "pm1_driver_common.h"
+#include "../app/pm1_driver_common.h"
 
+#include "../g29/steering_t.hh"
 #include "../src/chassis_model_t.hh"
 
 #include <fcntl.h>  // open
@@ -7,6 +8,7 @@
 #include <unistd.h> // close
 
 #include <filesystem>
+#include <iostream>
 #include <vector>
 
 using namespace autolabor::pm1;
@@ -90,9 +92,25 @@ int main() {
         }).detach();
     }
 
-    launch_parser(mutex, signal, chassis).detach();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     std::unique_lock<std::mutex> lock(mutex);
+    if (chassis.size() == 1)
+        std::cout << chassis.begin()->first << std::endl;
+
+    std::thread([&mutex, &chassis] {
+        float speed, rudder;
+        while (true) {
+            while (wait_event(speed, rudder)) {
+                std::cout << speed << " | " << rudder << std::endl;
+                std::unique_lock<std::mutex> lock(mutex);
+                chassis.begin()->second.set_physical(speed, rudder * pi_f / 2);
+            }
+            std::cout << "wheel disconnected" << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }).detach();
+
     while (!chassis.empty())
         signal.wait(lock);
 
