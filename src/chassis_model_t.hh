@@ -13,23 +13,24 @@ extern "C" {
 
 namespace autolabor::pm1 {
     class chassis_model_t {
-        constexpr static auto CONTROL_PERIOD = std::chrono::milliseconds(40);
-        
+    
         chassis_config_t _chassis_config = default_config;
         float
             _optimize_width = pi_f / 4,
             _acceleration = .8f,
-            _ratio_tail_physical_speed = 1.0f;
-    
+            _ratio_tail_physical_speed = .8f;
+
     public:
+        constexpr static auto CONTROL_PERIOD = std::chrono::milliseconds(20);
+    
         [[nodiscard]] physical optimize(const physical &target, const physical &current) const;
-        
+    
         [[nodiscard]] wheels to_wheels(const physical &) const;
-        
+    
         [[nodiscard]] velocity to_velocity(const physical &) const;
-        
+    
         [[nodiscard]] physical from_wheels(const wheels &) const;
-        
+    
         [[nodiscard]] physical from_velocity(const velocity &) const;
     };
 }

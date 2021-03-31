@@ -1,6 +1,7 @@
 #include "pm1_driver_common.h"
 
 #include "../src/autocan/pm1.h"
+#include "../src/chassis_model_t.hh"
 
 #include <cstring>
 #include <cmath>
@@ -21,8 +22,8 @@ namespace autolabor::pm1 {
     std::pair<uint8_t *, size_t> loop_msg_t::operator[](uint64_t i) const {
         using namespace std::chrono_literals;
         constexpr static uint32_t
-            N0 = 10s / PERIOD,
-            N1 = 400ms / PERIOD,
+            N0 = 10s / chassis_model_t::CONTROL_PERIOD,
+            N1 = 400ms / chassis_model_t::CONTROL_PERIOD,
             N2 = 2;
         auto size = i % N0 == 0
                     ? 24
@@ -45,9 +46,9 @@ namespace autolabor::pm1 {
         return std::thread([&mutex, &signal, &chassis] {
             using namespace std::chrono;
             using namespace std::chrono_literals;
-            
+    
             std::string target, temp;
-            float p0 = NAN;
+            auto p0 = NAN;
             steady_clock::time_point t0;
             
             enum class STATE { IDLE, V, P } state = STATE::IDLE;

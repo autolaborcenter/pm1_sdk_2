@@ -1,5 +1,7 @@
 #include "pm1_driver_common.h"
 
+#include "../src/chassis_model_t.hh"
+
 #include <Windows.h>
 #include <SetupAPI.h>
 
@@ -97,10 +99,10 @@ int main() {
             auto t0 = std::chrono::steady_clock::now();
             for (uint64_t i = 0; ptr->alive(); ++i) {
                 auto[buffer, size] = msg[i];
-                t0 += loop_msg_t::PERIOD;
+                t0 += chassis_model_t::CONTROL_PERIOD;
                 auto overlapped = new OVERLAPPED{.hEvent = buffer};
                 WriteFileEx(*fd_ptr, overlapped->hEvent, size, overlapped, &write_callback);
-                if (SleepEx(loop_msg_t::PERIOD.count(), true) != WAIT_IO_COMPLETION)
+                if (SleepEx(chassis_model_t::CONTROL_PERIOD.count(), true) != WAIT_IO_COMPLETION)
                     break;
                 std::this_thread::sleep_until(t0);
             }
