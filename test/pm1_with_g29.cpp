@@ -108,7 +108,7 @@ int main() {
                 std::unique_lock<std::mutex> lock(mutex);
                 if (chassis.empty())
                     return;
-                chassis.begin()->second.set_physical(speed, rudder * pi_f / 2);
+                chassis.begin()->second.set_physical(speed, rudder);
             }
             std::cout << "wheel disconnected" << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(1));

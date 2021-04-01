@@ -1,5 +1,9 @@
 #include "steering_t.hh"
 
+extern "C" {
+#include "control_model/model.h"
+}
+
 #include <fcntl.h>
 #include <linux/joystick.h>
 #include <sys/epoll.h>
@@ -20,7 +24,7 @@ class state_t {
 public:
     void to_float(float &speed, float &rudder) const {
         speed = (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f;
-        rudder = _direction / 32768.0f;
+        rudder = _direction / 32768.0f * pi_f / 2;
     }
 
     void set_direction(uint16_t value) {
@@ -60,6 +64,7 @@ class steering_t::context_t {
     int _event, _js, _epoll;
 
     state_t _state;
+    chassis_config_t _chassis = default_config;
 
     void update_autocenter(uint16_t value) const {
         input_event msg{.type = EV_FF, .code = FF_AUTOCENTER, .value = value};
@@ -68,7 +73,8 @@ class steering_t::context_t {
 
     void value_updated(float &speed, float &rudder) const {
         _state.to_float(speed, rudder);
-        update_autocenter(0x2000 + 0x4000 * std::abs(speed));
+        auto velocity = physical_to_velocity({speed, rudder}, &_chassis);
+        update_autocenter(0x2000 + 0x4000 * std::abs(velocity.v));
     }
 
 public:
