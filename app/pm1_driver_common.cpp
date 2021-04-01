@@ -1,7 +1,7 @@
 #include "pm1_driver_common.h"
 
-#include "../src/autocan/pm1.h"
-#include "../src/chassis_model_t.hh"
+#include "autocan/pm1.h"
+#include "chassis_model_t.hh"
 
 #include <cstring>
 #include <cmath>
@@ -46,7 +46,7 @@ namespace autolabor::pm1 {
         return std::thread([&mutex, &signal, &chassis] {
             using namespace std::chrono;
             using namespace std::chrono_literals;
-    
+            
             std::string target, temp;
             auto p0 = NAN;
             steady_clock::time_point t0;

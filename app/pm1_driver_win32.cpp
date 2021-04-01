@@ -1,6 +1,6 @@
 #include "pm1_driver_common.h"
 
-#include "../src/chassis_model_t.hh"
+#include "chassis_model_t.hh"
 
 #include <Windows.h>
 #include <SetupAPI.h>
@@ -27,14 +27,14 @@ int main() {
         
         if (set == INVALID_HANDLE_VALUE)
             return 1;
-    
+        
         SP_DEVINFO_DATA data{.cbSize = sizeof(SP_DEVINFO_DATA)};
         char buffer[64];
         for (auto i = 0; SetupDiEnumDeviceInfo(set, i, &data); ++i) {
             SetupDiGetDeviceRegistryProperty(set, &data, SPDRP_FRIENDLYNAME, NULL, reinterpret_cast<PBYTE>(buffer), sizeof(buffer), NULL);
             ports.emplace_back(buffer);
         }
-    
+        
         SetupDiDestroyDeviceInfoList(set);
     }
     
@@ -69,7 +69,7 @@ int main() {
             CloseHandle(fd);
             continue;
         }
-    
+        
         auto map_iterator = chassis.try_emplace(path.substr(4)).first;
         std::shared_ptr<HANDLE> fd_ptr(
             new HANDLE(fd),
@@ -83,7 +83,7 @@ int main() {
                     signal.notify_all();
                 }
             });
-    
+        
         std::thread([ptr = &map_iterator->second, fd_ptr] {
             read_context_t context{.chassis = ptr, .handle = *fd_ptr, .buffer{}, .size = 0,};
             OVERLAPPED overlapped;
@@ -93,7 +93,7 @@ int main() {
             } while (SleepEx(500, true) == WAIT_IO_COMPLETION && ptr->alive());
             ptr->close();
         }).detach();
-    
+        
         std::thread([ptr = &map_iterator->second, fd_ptr] {
             auto msg = loop_msg_t();
             auto t0 = std::chrono::steady_clock::now();

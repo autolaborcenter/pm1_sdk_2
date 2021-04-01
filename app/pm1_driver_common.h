@@ -1,7 +1,7 @@
 #ifndef PM1_DRIVER_COMMON_H
 #define PM1_DRIVER_COMMON_H
 
-#include "../src/chassis_t.hh"
+#include "chassis_t.hh"
 
 #include <chrono>
 #include <unordered_map>

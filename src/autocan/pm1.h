@@ -24,7 +24,7 @@ namespace autolabor::can::pm1 {
             #error
             #endif
         };
-    
+        
         MSG_DIALOG(0x80, state);
         MSG_DIALOG(0x81, version_id);
         MSG_DIALOG(0x82, device_id);
