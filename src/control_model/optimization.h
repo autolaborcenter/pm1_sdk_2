@@ -7,6 +7,13 @@
 
 #include "model.h"
 
+struct optimizer {
+    float
+        ratio_tail_physical_speed,
+        acceleration,
+        period;
+} extern const default_optimizer;
+
 /**
  * 控制量优化
  * @param target  目标控制量
@@ -17,25 +24,7 @@
  */
 struct physical optimize(struct physical target,
                          struct physical current,
-                         float optimize_width,
-                         float stepover);
-
-/** 在速度空间中限速 */
-void limit_in_velocity(struct physical *,
-                       float max_v,
-                       float max_w,
-                       const struct chassis_config_t *);
-
-/** 在物理模型空间中限速 */
-void limit_in_physical(struct physical *,
-                       float);
-
-/**
- * 基于结构的限速
- * @param k 允许的甩尾速度与轮速的比
- */
-void limit_by_struct(struct physical *,
-                     float k,
-                     const struct chassis_config_t *);
+                         const struct optimizer *,
+                         const struct chassis_config_t *);
 
 #endif //PM1_SDK_OPTIMIZATION_H

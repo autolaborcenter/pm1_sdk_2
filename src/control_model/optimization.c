@@ -5,39 +5,24 @@
 #include <math.h>
 #include "optimization.h"
 
+const struct optimizer default_optimizer = {1.2f, 0.8f, 0.02f};
+
 struct physical optimize(struct physical target,
                          struct physical current,
-                         float optimize_width,
-                         float stepover) {
-    struct physical result = {0, current.rudder};
-    // 等待后轮转动
-    if (!isnan(target.rudder))
-        result.speed = target.speed * fmaxf(0, 1 - fabsf(target.rudder - current.rudder) / optimize_width);
+                         const struct optimizer *parameter,
+                         const struct chassis_config_t *chassis) {
+    // 基于现象的限速
+    struct velocity temp = physical_to_velocity(target, chassis);
+    float max_w = parameter->ratio_tail_physical_speed * target.speed / chassis->length;
+    target.speed /= fmaxf(1, fabsf(temp.w / max_w));
+    // 基于结构的限速
+    struct physical result = {
+        isnan(target.rudder) ? 0 : (cosf(2 * (target.rudder - current.rudder)) + 1) / 2,
+        current.rudder};
     // 动态调速
+    float stepover = parameter->acceleration * parameter->period;
     result.speed = result.speed > current.speed
                    ? fminf(current.speed + stepover, result.speed)
                    : fmaxf(current.speed - stepover, result.speed);
     return result;
-}
-
-void limit_in_velocity(struct physical *physical,
-                       float max_v,
-                       float max_w,
-                       const struct chassis_config_t *chassis) {
-    struct velocity temp = physical_to_velocity(*physical, chassis);
-    physical->speed /= fmaxf(1, fmaxf(fabsf(temp.v / max_v),
-                                      fabsf(temp.w / max_w)));
-}
-
-void limit_in_physical(struct physical *physical,
-                       float max_wheel_speed) {
-    physical->speed /= fmaxf(1, fabsf(physical->speed / max_wheel_speed));
-}
-
-void limit_by_struct(struct physical *physical,
-                     float k,
-                     const struct chassis_config_t *chassis) {
-    struct velocity temp = physical_to_velocity(*physical, chassis);
-    float max_w = k * physical->speed / chassis->length;
-    physical->speed /= fmaxf(1, fabsf(temp.w / max_w));
 }

@@ -6,10 +6,7 @@
 
 namespace autolabor::pm1 {
     physical chassis_model_t::optimize(const physical &target, const physical &current) const {
-        auto stepover = _acceleration * std::chrono::duration<float, std::ratio<1>>(CONTROL_PERIOD).count();
-        auto optimized = ::optimize(target, current, _optimize_width, stepover);
-        limit_by_struct(&optimized, _ratio_tail_physical_speed, &_chassis_config);
-        return optimized;
+        return ::optimize(target, current, &_optimizer, &_chassis_config);
     }
     
     wheels chassis_model_t::to_wheels(const physical &p) const {
