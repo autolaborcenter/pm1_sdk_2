@@ -18,8 +18,9 @@ class state_t {
         _max_level = 5;
 
 public:
-    std::pair<float, float> to_float() const {
-        return std::make_pair(_direction / 32768.0f, (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f);
+    void to_float(float &speed, float &rudder) const {
+        speed = (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f;
+        rudder = _direction / 32768.0f;
     }
 
     void set_direction(uint16_t value) {
@@ -54,10 +55,8 @@ class steering_t::context_t {
     }
 
     void value_updated(float &speed, float &rudder) const {
-        auto [rudder_, speed_] = _state.to_float();
-        update_autocenter(0x2000 + 0x4000 * std::abs(speed_));
-        speed = speed_;
-        rudder = rudder_;
+        _state.to_float(speed, rudder);
+        update_autocenter(0x2000 + 0x4000 * std::abs(speed));
     }
 
 public:
@@ -75,6 +74,7 @@ public:
     context_t &operator=(context_t &&) = delete;
 
     ~context_t() {
+        _state = {};
         ::close(_epoll);
         ::close(_event);
         ::close(_js);
@@ -126,8 +126,10 @@ public:
             js_event event{};
             epoll_event epoll{};
             auto n = epoll_wait(_epoll, &epoll, 1, 100);
-            if (!n)
+            if (!n) {
+                value_updated(speed, rudder);
                 return true;
+            }
             if (read(epoll.data.u32, &event, sizeof(js_event)) < 0) {
                 close();
                 return false;

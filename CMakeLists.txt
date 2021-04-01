@@ -3,7 +3,7 @@
 project(pm1_sdk_2 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(src)
 add_subdirectory(src/control_model)

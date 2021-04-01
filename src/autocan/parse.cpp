@@ -23,35 +23,36 @@ namespace autolabor::can {
             87, 9, 235, 181, 54, 104, 138, 212, 149, 203, 41, 119, 244, 170, 72, 22,
             233, 183, 85, 11, 136, 214, 52, 106, 43, 117, 151, 201, 74, 20, 246, 168,
             116, 42, 200, 150, 21, 75, 169, 247, 182, 232, 10, 84, 215, 137, 107, 53};
-        
+
         uint8_t sum = 0;
         for (; begin != end; ++begin)
             sum = crc8[sum ^ *begin];
         return sum;
     }
-    
+
     std::vector<const uint8_t *> split(const uint8_t *begin, const uint8_t *const end) {
-        constexpr static auto MIN_SIZE = sizeof(header_t) + 1 + 1; // header + reserve + crc
-        
+        constexpr static auto MIN_SIZE = sizeof(header_t) + 1 + 1;// header + reserve + crc
+
         std::vector<const uint8_t *> result((end - begin) / MIN_SIZE + 1);
         result.clear();
         while (true) {
             auto size = MIN_SIZE;
-            
+
             // 找头
-            
-            for (; begin != end && *begin != 0xfe; ++begin);
+
+            for (; begin != end && *begin != 0xfe; ++begin)
+                ;
             result.push_back(begin);
             if (end - begin < size) return result;
-            
+
             // 确定包长
-            
+
             if (reinterpret_cast<const header_t *>(begin)->data.payload)
                 size += 8;
             if (end - begin < size) return result;
-            
+
             // 计算校验
-            
+
             if (crc_calculate(begin, begin + size - 1) != begin[size - 1])
                 begin += size;
             else {
@@ -60,4 +61,4 @@ namespace autolabor::can {
             }
         }
     }
-} // namespace autolabor::can
+}// namespace autolabor::can

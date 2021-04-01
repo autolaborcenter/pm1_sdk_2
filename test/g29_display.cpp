@@ -1,7 +1,7 @@
 #include "../g29/steering_t.hh"
 
-#include <thread>
 #include <iostream>
+#include <thread>
 
 int main() {
     float speed, rudder;

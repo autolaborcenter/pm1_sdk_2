@@ -8,23 +8,23 @@
 #include "protocol.h"
 
 namespace autolabor::can::pm1 {
-    #define MSG_DIALOG(MSG_TYPE, NAME) using NAME = dialog<MSG_TYPE>
-    #define MSG_DIALOG_(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
-    #define MSG_TX_(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::rx
-    
+#define MSG_DIALOG(MSG_TYPE, NAME) using NAME = dialog<MSG_TYPE>
+#define MSG_DIALOG_(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
+#define MSG_TX_(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::rx
+
     template<auto _type, auto _index>
     struct node {
         template<auto msg_type>
         struct dialog {
             constexpr static header_t
-            #if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
                 tx{.data{.head = 0xfe, .node_type_h = (_type >> 4) & 0b11, .payload = false, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}},
                 rx{.data{.head = 0xfe, .node_type_h = (_type >> 4) & 0b11, .payload = true, .node_index = _index, .node_type_l = _type & 0b1111, .msg_type = msg_type}};
-            #elif __BYTE_ORDER == __BIG_ENDIAN
-            #error
-            #endif
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#error
+#endif
         };
-        
+
         MSG_DIALOG(0x80, state);
         MSG_DIALOG(0x81, version_id);
         MSG_DIALOG(0x82, device_id);
@@ -38,7 +38,7 @@ namespace autolabor::can::pm1 {
         constexpr static auto lock = dialog<0xff>::tx;
         constexpr static auto unlock = dialog<0xff>::rx;
     };
-    
+
     template<auto _index>
     struct vcu : public node<0x10, _index> {
         MSG_DIALOG_(vcu, 1, battery_percent);
@@ -50,7 +50,7 @@ namespace autolabor::can::pm1 {
         MSG_DIALOG_(vcu, 7, power_switch);
         MSG_TX_(vcu, 8, target_speed);
     };
-    
+
     template<auto _index>
     struct ecu : public node<0x11, _index> {
         MSG_TX_(ecu, 1, target_speed);
@@ -59,7 +59,7 @@ namespace autolabor::can::pm1 {
         MSG_TX_(ecu, 7, encoder_reset);
         MSG_TX_(ecu, 10, command_timeout);
     };
-    
+
     template<auto _index>
     struct tcu : public node<0x12, _index> {
         MSG_TX_(tcu, 1, target_position);
@@ -70,19 +70,19 @@ namespace autolabor::can::pm1 {
         MSG_TX_(tcu, 6, set_zero);
         MSG_TX_(tcu, 7, command_timeout);
     };
-    
+
     using every_node = node<0x3f, 0x0f>;
     using every_vcu = vcu<0x0f>;
     using every_ecu = ecu<0x0f>;
     using every_tcu = tcu<0x0f>;
-    
+
     using any_node = node<0, 0>;
     using any_vcu = vcu<0>;
     using any_ecu = ecu<0>;
     using any_tcu = tcu<0>;
-    
-    #undef SPECIAL_MSG_DIALOG
-    #undef MSG_DIALOG
-}
 
-#endif //PM1_SDK_2_PM1_H
+#undef SPECIAL_MSG_DIALOG
+#undef MSG_DIALOG
+}// namespace autolabor::can::pm1
+
+#endif//PM1_SDK_2_PM1_H

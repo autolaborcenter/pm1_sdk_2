@@ -2,8 +2,8 @@
 // Created by ydrml on 2019/3/20.
 //
 
-#include <math.h>
 #include "optimization.h"
+#include <math.h>
 
 const struct optimizer default_optimizer = {1.2f, 0.8f, 0.02f};
 
@@ -17,12 +17,12 @@ struct physical optimize(struct physical target,
     target.speed /= fmaxf(1, fabsf(temp.w / max_w));
     // 基于结构的限速
     struct physical result = {
-        isnan(target.rudder) ? 0 : (cosf(2 * (target.rudder - current.rudder)) + 1) / 2,
+        isnan(target.rudder) ? 0 : fmaxf(0, cosf(2 * (target.rudder - current.rudder)) + 1) * target.speed / 2,
         current.rudder};
     // 动态调速
     float stepover = parameter->acceleration * parameter->period;
     result.speed = result.speed > current.speed
-                   ? fminf(current.speed + stepover, result.speed)
-                   : fmaxf(current.speed - stepover, result.speed);
+                       ? fminf(current.speed + stepover, result.speed)
+                       : fmaxf(current.speed - stepover, result.speed);
     return result;
 }
