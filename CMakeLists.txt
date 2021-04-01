@@ -28,7 +28,7 @@ if (WIN32)
     add_executable(pm1_driver_win32 app/pm1_driver_win32.cpp)
     target_link_libraries(pm1_driver_win32 app_common)
 elseif (UNIX)
-    add_subdirectory(g29)
+    add_subdirectory(src/g29)
 
     find_package(Threads)
     EXECUTE_PROCESS(COMMAND uname -m OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE architecture)

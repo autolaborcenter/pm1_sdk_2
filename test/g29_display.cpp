@@ -1,4 +1,4 @@
-#include "../g29/steering_t.hh"
+#include "g29/steering_t.hh"
 
 #include <iostream>
 #include <thread>

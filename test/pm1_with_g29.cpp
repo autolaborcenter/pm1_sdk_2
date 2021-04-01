@@ -1,6 +1,6 @@
 #include "../app/pm1_driver_common.h"
 
-#include "../g29/steering_t.hh"
+#include "g29/steering_t.hh"
 #include "chassis_model_t.hh"
 
 #include <fcntl.h>  // open
@@ -97,6 +97,8 @@ int main() {
     std::unique_lock<std::mutex> lock(mutex);
     if (chassis.size() == 1)
         std::cout << chassis.begin()->first << std::endl;
+    else
+        return 1;
 
     auto thread = std::thread([&mutex, &chassis] {
         float speed, rudder;
@@ -116,6 +118,7 @@ int main() {
     while (!chassis.empty())
         signal.wait(lock);
 
+    lock.unlock();
     thread.join();
 
     return 0;

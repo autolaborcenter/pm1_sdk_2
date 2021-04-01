@@ -37,8 +37,20 @@ public:
     }
 
     void level_down() {
-        if (_level > 0)
+        if (_level > 1)
             --_level;
+    }
+
+    bool sternway(int16_t value) {
+        if (!_level && value > 16384) {
+            _level = 1;
+            return true;
+        }
+        if (_level && value < -16384) {
+            _level = 0;
+            return true;
+        }
+        return false;
     }
 };
 
@@ -157,6 +169,12 @@ public:
                             _state.set_direction(event.value);
                             value_updated(speed, rudder);
                             return true;
+                        case 1:
+                            if (_state.sternway(event.value)) {
+                                value_updated(speed, rudder);
+                                return true;
+                            }
+                            break;
                         case 2:
                             _state.set_power(event.value);
                             value_updated(speed, rudder);
