@@ -17,7 +17,7 @@ struct physical optimize(struct physical target,
     target.speed /= fmaxf(1, fabsf(temp.w / max_w));
     // 基于结构的限速
     struct physical result = {
-        isnan(target.rudder) ? 0 : fmaxf(0, cosf(2 * (target.rudder - current.rudder)) + 1) * target.speed / 2,
+        isnan(target.rudder) ? 0 : cosf(target.rudder - current.rudder) * target.speed,
         current.rudder};
     // 动态调速
     float stepover = parameter->acceleration * parameter->period;
