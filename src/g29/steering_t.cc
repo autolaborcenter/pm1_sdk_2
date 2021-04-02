@@ -257,7 +257,7 @@ steering_t &steering_t::global(const char *&name_) {
 
     std::ifstream file("/proc/bus/input/devices");
     std::string event, js;
-    char line[128];
+    char line[512];
 
     while (file.getline(line, sizeof line))
         if (std::strlen(line) < 3) {
