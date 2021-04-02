@@ -3,9 +3,10 @@
 #include "chassis_model_t.hh"
 
 #include <Windows.h>
+
 #include <SetupAPI.h>
 
-#pragma comment (lib, "setupapi.lib")
+#pragma comment(lib, "setupapi.lib")
 
 using namespace autolabor::pm1;
 
@@ -24,20 +25,20 @@ int main() {
     std::vector<std::string> ports;
     {
         auto set = SetupDiGetClassDevs(&GUID_DEVINTERFACE_COMPORT, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-        
+
         if (set == INVALID_HANDLE_VALUE)
             return 1;
-        
+
         SP_DEVINFO_DATA data{.cbSize = sizeof(SP_DEVINFO_DATA)};
         char buffer[64];
         for (auto i = 0; SetupDiEnumDeviceInfo(set, i, &data); ++i) {
             SetupDiGetDeviceRegistryProperty(set, &data, SPDRP_FRIENDLYNAME, NULL, reinterpret_cast<PBYTE>(buffer), sizeof(buffer), NULL);
             ports.emplace_back(buffer);
         }
-        
+
         SetupDiDestroyDeviceInfoList(set);
     }
-    
+
     std::unordered_map<std::string, chassis_t> chassis;
     std::mutex mutex;
     std::condition_variable signal;
@@ -46,30 +47,31 @@ int main() {
         if (p < 0 || p >= name.size())
             continue;
         auto q = p + 2;
-        while (std::isdigit(name[++q]));
-        
+        while (std::isdigit(name[++q]))
+            ;
+
         auto path = R"(\\.\)" + name.substr(p, q - p);
-        
+
         auto fd = CreateFile(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
         if (fd == INVALID_HANDLE_VALUE)
             continue;
-        
+
         DCB dcb{
             .DCBlength = sizeof(DCB),
-            .BaudRate  = CBR_115200,
-            .ByteSize  = 8,
+            .BaudRate = CBR_115200,
+            .ByteSize = 8,
         };
         if (!SetCommState(fd, &dcb)) {
             CloseHandle(fd);
             continue;
         }
-        
+
         COMMTIMEOUTS commtimeouts{.ReadIntervalTimeout = 5};
         if (!SetCommTimeouts(fd, &commtimeouts)) {
             CloseHandle(fd);
             continue;
         }
-        
+
         auto map_iterator = chassis.try_emplace(path.substr(4)).first;
         std::shared_ptr<HANDLE> fd_ptr(
             new HANDLE(fd),
@@ -83,9 +85,14 @@ int main() {
                     signal.notify_all();
                 }
             });
-        
+
         std::thread([ptr = &map_iterator->second, fd_ptr] {
-            read_context_t context{.chassis = ptr, .handle = *fd_ptr, .buffer{}, .size = 0,};
+            read_context_t context{
+                .chassis = ptr,
+                .handle = *fd_ptr,
+                .buffer{},
+                .size = 0,
+            };
             OVERLAPPED overlapped;
             do {
                 overlapped = {.hEvent = &context};
@@ -93,12 +100,12 @@ int main() {
             } while (SleepEx(500, true) == WAIT_IO_COMPLETION && ptr->alive());
             ptr->close();
         }).detach();
-        
+
         std::thread([ptr = &map_iterator->second, fd_ptr] {
             auto msg = loop_msg_t();
             auto t0 = std::chrono::steady_clock::now();
             for (uint64_t i = 0; ptr->alive(); ++i) {
-                auto[buffer, size] = msg[i];
+                auto [buffer, size] = msg[i];
                 t0 += chassis_model_t::CONTROL_PERIOD;
                 auto overlapped = new OVERLAPPED{.hEvent = buffer};
                 WriteFileEx(*fd_ptr, overlapped->hEvent, size, overlapped, &write_callback);
@@ -109,12 +116,12 @@ int main() {
             ptr->close();
         }).detach();
     }
-    
+
     launch_parser(mutex, signal, chassis).detach();
-    
+
     std::unique_lock<std::mutex> lock(mutex);
     while (!chassis.empty()) signal.wait(lock);
-    
+
     return 0;
 }
 
