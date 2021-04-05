@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <sstream>
 
 namespace autolabor::pm1 {
     loop_msg_t::loop_msg_t() : _bytes{} {

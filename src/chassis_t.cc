@@ -51,7 +51,7 @@ namespace autolabor::pm1 {
               _target_set(clock::time_point::min()),
               _rudder_received(clock::now()),
               _internal_speed(0),
-              _target{0, NAN},
+              _target(physical_zero),
               _alive(true) {}
 
         [[nodiscard]] bool alive() const {

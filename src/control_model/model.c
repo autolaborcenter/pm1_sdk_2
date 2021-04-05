@@ -5,6 +5,8 @@
 #include "model.h"
 #include <math.h>
 
+const struct physical physical_zero = {0, NAN};
+
 struct wheels physical_to_wheels(
     struct physical physical,
     const struct chassis_config_t *config) {
