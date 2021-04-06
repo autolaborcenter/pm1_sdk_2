@@ -9,10 +9,13 @@ extern "C" {
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include <atomic>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 
+/** int16_t to float */
 class state_t {
     int16_t
         _direction = 0,
@@ -24,7 +27,7 @@ class state_t {
 public:
     void to_float(float &speed, float &rudder) const {
         speed = (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f;
-        rudder = _direction / 32768.0f * pi_f / 2;
+        rudder = std::copysignf(std::pow(std::abs(_direction) / 32768.0f, 1.5f), _direction) * pi_f / 2;
     }
 
     void set_direction(uint16_t value) {
@@ -35,14 +38,20 @@ public:
         _power = value;
     }
 
-    void level_up() {
-        if (_level < _max_level)
+    bool level_up() {
+        if (_level < _max_level) {
             ++_level;
+            return true;
+        }
+        return false;
     }
 
-    void level_down() {
-        if (_level > 1)
+    bool level_down() {
+        if (_level > 1) {
             --_level;
+            return true;
+        }
+        return false;
     }
 
     bool sternway(int16_t value) {
@@ -159,13 +168,13 @@ public:
                         switch (event.number) {
                             case 4:
                             case 19:
-                                _state.level_up();
-                                value_updated(speed, rudder);
+                                if (_state.level_up())
+                                    value_updated(speed, rudder);
                                 return true;
                             case 5:
                             case 20:
-                                _state.level_down();
-                                value_updated(speed, rudder);
+                                if (_state.level_down())
+                                    value_updated(speed, rudder);
                                 return true;
                         }
                     break;
@@ -218,10 +227,24 @@ bool steering_t::wait_event(float &speed, float &rudder) {
     return _context ? _context->wait_event(speed, rudder) : false;
 }
 
+std::atomic<physical> _target;
+
 bool wait_event(float &speed, float &rudder) {
     const char *name;
     auto &steering = steering_t::global(name);
-    return name ? steering.wait_event(speed, rudder) : false;
+    if (name && steering.wait_event(speed, rudder)) {
+        _target.store({speed, rudder});
+        return true;
+    } else {
+        _target.store(physical_zero);
+        return false;
+    }
+}
+
+void set_state(float &speed, float &rudder) {
+    auto target = _target.load();
+    speed = target.speed;
+    rudder = target.rudder;
 }
 
 steering_t &steering_t::global(const char *&name_) {

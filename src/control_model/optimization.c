@@ -5,7 +5,7 @@
 #include "optimization.h"
 #include <math.h>
 
-const struct optimizer default_optimizer = {1.2f, 0.8f, 0.02f};
+const struct optimizer default_optimizer = {1.0f, 0.8f, 0.02f};
 
 struct physical optimize(struct physical target,
                          struct physical current,

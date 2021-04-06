@@ -1,8 +1,7 @@
 #ifndef STEERING_T_HH
 #define STEERING_T_HH
 
-class steering_t
-{
+class steering_t {
     class context_t;
     context_t *_context;
 
@@ -23,9 +22,9 @@ public:
     bool wait_event(float &, float &);
 };
 
-extern "C"
-{
-    bool wait_event(float &, float &);
+extern "C" {
+bool wait_event(float &, float &);
+void set_state(float &, float &);
 }
 
-#endif // STEERING_T_HH
+#endif// STEERING_T_HH
