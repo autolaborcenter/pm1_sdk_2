@@ -27,7 +27,7 @@ class state_t {
 public:
     void to_float(float &speed, float &rudder) const {
         speed = (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f;
-        rudder = std::copysignf(std::pow(std::abs(_direction) / 32768.0f, 1.5f), _direction) * pi_f / 2;
+        rudder = std::copysignf(std::pow(std::abs(_direction) / 32768.0f, 2.0f), _direction) * pi_f / 2;
     }
 
     void set_direction(uint16_t value) {
@@ -83,7 +83,7 @@ class steering_t::context_t {
     void value_updated(float &speed, float &rudder) const {
         _state.to_float(speed, rudder);
         auto velocity = physical_to_velocity({speed, rudder}, &_chassis);
-        update_autocenter(0x2000 + 0x4000 * std::abs(velocity.v));
+        update_autocenter(0x2800 + 0x6000 * std::abs(velocity.v));
     }
 
 public:

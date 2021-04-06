@@ -27,4 +27,4 @@ struct physical optimize(struct physical target,
                          const struct optimizer *,
                          const struct chassis_config_t *);
 
-#endif //PM1_SDK_OPTIMIZATION_H
+#endif//PM1_SDK_OPTIMIZATION_H
