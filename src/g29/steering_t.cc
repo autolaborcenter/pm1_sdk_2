@@ -256,13 +256,13 @@ void steering_t::set_state(float speed, float rudder) {
         _context;
 }
 
-std::shared_ptr<steering_t> steering();
-std::atomic<physical> _current, _target;
+std::shared_ptr<steering_t> steering(bool);
+std::atomic<physical> _current({0, 0}), _target({0, 0});
 physical _state0, _state1;
 autolabor::odometry_t _pose;
 
 bool wait_event(float &speed, float &rudder, int timeout) {
-    auto _steering = steering();
+    auto _steering = steering(true);
     if (_steering && _steering->wait_event(speed, rudder, timeout)) {
         _target = {speed, rudder};
         return true;
@@ -274,7 +274,7 @@ bool wait_event(float &speed, float &rudder, int timeout) {
 
 void set_state(float &speed, float &rudder) {
     _current = {speed, rudder};
-    auto _steering = steering();
+    auto _steering = steering(false);
     if (_steering) {
         _steering->set_state(speed, rudder);
         auto target = _target.load();
@@ -308,7 +308,7 @@ void next_pose(float &x, float &y, float &theta) {
     theta = _pose.theta;
 }
 
-std::shared_ptr<steering_t> steering() {
+std::shared_ptr<steering_t> steering(bool try_) {
     constexpr static auto
         N_PREFIX = "N: Name=",
         H_PREFIX = "H: Handlers=",
@@ -327,7 +327,10 @@ std::shared_ptr<steering_t> steering() {
     if (_steering && _steering->open())
         return _steering;
 
-    std::unique_lock<decltype(looking_for)> retry(looking_for);
+    if (!try_)
+        return nullptr;
+
+    std::unique_lock<decltype(looking_for)> try_lock(looking_for);
     if (_steering && _steering->open())
         return _steering;
 
