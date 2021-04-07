@@ -44,7 +44,6 @@ namespace autolabor::pm1 {
         std::condition_variable &signal,
         std::unordered_map<std::string, chassis_t> &chassis) {
         return std::thread([&mutex, &signal, &chassis] {
-            std::stringstream formatter;
             char line[64];
             while (std::cin.getline(line, sizeof line)) {
                 switch (line[0]) {
@@ -56,28 +55,29 @@ namespace autolabor::pm1 {
                         lock.unlock();
                         std::cout << std::endl;
                     } break;
-                    case 'V': {
-                        std::string name;
-                        float v, w;
-                        formatter.str(line + 2);
-                        formatter >> name >> v >> w;
-                        if (!formatter.fail()) {
-                            std::unique_lock<std::mutex> lock(mutex);
-                            auto p = chassis.find(name);
-                            if (p != chassis.end())
-                                p->second.set_velocity(v, w);
-                        }
-                    } break;
                     case 'P': {
+                        std::stringstream formatter;
+                        formatter.str(line + 2);
+
                         std::string name;
                         float speed, rudder;
-                        formatter.str(line + 2);
-                        formatter >> name >> speed >> rudder;
+
+                        formatter >> name >> speed;
                         if (!formatter.fail()) {
                             std::unique_lock<std::mutex> lock(mutex);
+                            auto failed = true;
                             auto p = chassis.find(name);
-                            if (p != chassis.end())
+                            if (p != chassis.end()) {
+                                formatter >> rudder;
+                                if ((failed = formatter.fail()) && speed == 0) {
+                                    rudder = NAN;
+                                    failed = false;
+                                }
+                            }
+                            if (!failed) {
                                 p->second.set_physical(speed, rudder);
+                                std::cout << "P " << name << ' ' << speed << ' ' << rudder << std::endl;
+                            }
                         }
                     } break;
                     case 'B': {

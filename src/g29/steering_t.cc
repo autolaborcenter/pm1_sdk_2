@@ -1,7 +1,10 @@
 #include "steering_t.hh"
 
+#include "odometry_t.hpp"
+
 extern "C" {
 #include "control_model/model.h"
+#include "control_model/optimization.h"
 }
 
 #include <fcntl.h>
@@ -14,6 +17,7 @@ extern "C" {
 #include <filesystem>
 #include <fstream>
 
+#include <algorithm>
 #include <memory>
 #include <shared_mutex>
 
@@ -253,7 +257,9 @@ void steering_t::set_state(float speed, float rudder) {
 }
 
 std::shared_ptr<steering_t> steering();
-std::atomic<physical> _target;
+std::atomic<physical> _current, _target;
+physical _state0, _state1;
+autolabor::odometry_t _pose;
 
 bool wait_event(float &speed, float &rudder, int timeout) {
     auto _steering = steering();
@@ -267,6 +273,7 @@ bool wait_event(float &speed, float &rudder, int timeout) {
 }
 
 void set_state(float &speed, float &rudder) {
+    _current = {speed, rudder};
     auto _steering = steering();
     if (_steering) {
         _steering->set_state(speed, rudder);
@@ -280,7 +287,25 @@ void set_state(float &speed, float &rudder) {
     }
 }
 
+void freeze_state() {
+    _state0 = _current;
+    _state1 = _target;
+    _pose = {};
+}
+
 void next_pose(float &x, float &y, float &theta) {
+    _state0 = optimize(_state1, _state0, &default_optimizer, &default_config);
+    if (_state1.rudder > _state0.rudder)
+        _state0.rudder = std::min({_state0.rudder + default_optimizer.period, _state1.rudder, +pi_f / 2});
+    else
+        _state0.rudder = std::max({_state0.rudder - default_optimizer.period, _state1.rudder, -pi_f / 2});
+
+    using delta_t = autolabor::odometry_t<autolabor::odometry_type::delta, float>;
+    auto velocity = physical_to_velocity(_state0, &default_config);
+    _pose += delta_t::from_velocity(velocity.v, velocity.w);
+    x = _pose.x;
+    y = _pose.y;
+    theta = _pose.theta;
 }
 
 std::shared_ptr<steering_t> steering() {

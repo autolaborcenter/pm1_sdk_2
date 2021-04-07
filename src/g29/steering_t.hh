@@ -24,6 +24,7 @@ public:
 extern "C" {
 bool wait_event(float &speed, float &rudder, int timeout);
 void set_state(float &speed, float &rudder);
+void freeze_state();
 void next_pose(float &x, float &y, float &theta);
 }
 

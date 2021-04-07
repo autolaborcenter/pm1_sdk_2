@@ -32,8 +32,7 @@ namespace autolabor::pm1 {
         uint8_t _battery_percent;
 
         clock::time_point _target_set, _rudder_received;
-        float _internal_speed;
-        physical _target;
+        physical _current, _target;
         bool _alive;
 
         template<class t>
@@ -50,7 +49,7 @@ namespace autolabor::pm1 {
             : _battery_percent(0),
               _target_set(clock::time_point::min()),
               _rudder_received(clock::now()),
-              _internal_speed(0),
+              _current(physical_zero),
               _target(physical_zero),
               _alive(true) {}
 
@@ -69,6 +68,10 @@ namespace autolabor::pm1 {
         void set_target(physical target) {
             _target_set = clock::now();
             _target = target;
+        }
+
+        physical state() const {
+            return _current;
         }
 
         void communicate(uint8_t *&buffer, uint8_t &size) {
@@ -126,6 +129,7 @@ namespace autolabor::pm1 {
             }
             if (!std::isnan(rudder)) {
                 using namespace std::chrono_literals;
+                _current.rudder = rudder;
 
                 _rudder_received = now;
                 auto should_stop = _rudder_received > _target_set + 200ms;
@@ -133,10 +137,9 @@ namespace autolabor::pm1 {
                 if (std::isnan(_target.rudder) || should_stop)
                     _target = {0, rudder};
 
-                if (!should_stop || _internal_speed != 0) {
-                    auto optimized = model.optimize(_target, {_internal_speed, rudder});
-                    auto wheels = model.to_wheels(optimized);
-                    _internal_speed = optimized.speed;
+                if (!should_stop || _current.speed != 0) {
+                    _current.speed = model.optimize(_target, _current).speed;
+                    auto wheels = model.to_wheels(_current);
 
                     *reinterpret_cast<can::header_t *>(end) = can::pm1::ecu<0>::target_speed;
                     end = to_stream<int32_t>(end, PULSES_OF(wheels.left, default_wheel_k));
@@ -166,12 +169,15 @@ namespace autolabor::pm1 {
         return _implement->battery_percent();
     }
 
-    void chassis_t::set_velocity(float v, float w) {
-        _implement->set_target(_implement->model.from_velocity({v, w}));
+    void chassis_t::state(float &speed, float &rudder) const {
+        auto state = _implement->state();
+        speed = state.speed;
+        rudder = state.rudder;
     }
 
-    void chassis_t::set_physical(float speed, float rudder) {
+    void chassis_t::set_physical(float &speed, float &rudder) {
         _implement->set_target({speed, rudder});
+        state(speed, rudder);
     }
 
     void chassis_t::close() {

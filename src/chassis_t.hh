@@ -28,9 +28,9 @@ namespace autolabor::pm1 {
 
         void close();
 
-        void set_velocity(float v, float w);
+        void state(float &speed, float &rudder) const;
 
-        void set_physical(float speed, float rudder);
+        void set_physical(float &speed, float &rudder);
     };
 }// namespace autolabor::pm1
 

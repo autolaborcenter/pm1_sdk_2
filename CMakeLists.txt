@@ -51,7 +51,7 @@ elseif (UNIX)
     add_executable(pm1_g29_test test/pm1_with_g29.cpp)
 
     if (architecture STREQUAL "aarch64")
-        add_library(g29_aarch64 SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE})
+        add_library(g29_aarch64 SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE} src/odometry_t.hpp)
 
         add_executable(pm1_driver_aarch64 app/pm1_driver_linux.cpp)
         target_link_libraries(pm1_driver_aarch64 app_common)
@@ -59,7 +59,7 @@ elseif (UNIX)
         target_link_libraries(g29_test g29_aarch64)
         target_link_libraries(pm1_g29_test g29_aarch64 app_common)
     else ()
-        add_library(g29_unix SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE})
+        add_library(g29_unix SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE} src/odometry_t.hpp)
 
         add_executable(pm1_driver_unix app/pm1_driver_linux.cpp)
         target_link_libraries(pm1_driver_unix app_common)
