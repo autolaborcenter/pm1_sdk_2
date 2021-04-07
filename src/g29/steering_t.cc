@@ -9,14 +9,16 @@ extern "C" {
 #include <sys/epoll.h>
 #include <unistd.h>
 
-#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 
+#include <memory>
+#include <shared_mutex>
+
 /** int16_t to float */
-class state_t {
+class g29_value_t {
     int16_t
         _direction = 0,
         _power = 32767;
@@ -72,7 +74,10 @@ class steering_t::context_t {
 
     int _event, _js, _epoll;
 
-    state_t _state;
+    using clock = std::chrono::steady_clock;
+    clock::time_point _state_updated;
+
+    g29_value_t _value;
     chassis_config_t _chassis = default_config;
 
     void update_autocenter(uint16_t value) const {
@@ -80,10 +85,13 @@ class steering_t::context_t {
         auto _ = write(_event, &msg, sizeof(input_event));
     }
 
-    void value_updated(float &speed, float &rudder) const {
-        _state.to_float(speed, rudder);
-        auto velocity = physical_to_velocity({speed, rudder}, &_chassis);
-        update_autocenter(0x2800 + 0x6000 * std::abs(velocity.v));
+    void update_ff(physical p, bool actual) {
+        if (actual)
+            _state_updated = clock::now();
+        else if (_state_updated != clock::time_point::min() &&
+                 clock::now() > _state_updated + std::chrono::seconds(1))
+            p = physical_zero;
+        update_autocenter(0x2800 + 0x6000 * std::abs(physical_to_velocity(p, &_chassis).v));
     }
 
 public:
@@ -93,7 +101,8 @@ public:
           _event(0),
           _js(0),
           _epoll(epoll_create1(0)),
-          _state{} {}
+          _value{},
+          _state_updated(decltype(_state_updated)::min()) {}
 
     context_t(context_t const &) = delete;
     context_t(context_t &&) noexcept = delete;
@@ -101,7 +110,7 @@ public:
     context_t &operator=(context_t &&) = delete;
 
     ~context_t() {
-        _state = {};
+        _value = {};
         ::close(_epoll);
         ::close(_event);
         ::close(_js);
@@ -142,19 +151,19 @@ public:
     void close() {
         if (!_event)
             return;
-        _state = {};
+        _value = {};
         epoll_ctl(_epoll, EPOLL_CTL_DEL, _js, nullptr);
         ::close(std::exchange(_event, 0));
         ::close(std::exchange(_js, 0));
     }
 
-    bool wait_event(float &speed, float &rudder) {
+    bool wait_event(float &speed, float &rudder, int timeout) {
         while (true) {
             js_event event{};
             epoll_event epoll{};
-            auto n = epoll_wait(_epoll, &epoll, 1, 100);
+            auto n = epoll_wait(_epoll, &epoll, 1, timeout);
             if (!n) {
-                value_updated(speed, rudder);
+                _value.to_float(speed, rudder);
                 return true;
             }
             if (read(epoll.data.u32, &event, sizeof(js_event)) < 0) {
@@ -164,40 +173,51 @@ public:
 
             switch (event.type) {
                 case 1:
-                    if (event.value == 0)
+                    if (!event.value)
                         switch (event.number) {
                             case 4:
                             case 19:
-                                if (_state.level_up())
-                                    value_updated(speed, rudder);
+                                if (_value.level_up()) {
+                                    _value.to_float(speed, rudder);
+                                    update_ff({speed, rudder}, false);
+                                }
                                 return true;
                             case 5:
                             case 20:
-                                if (_state.level_down())
-                                    value_updated(speed, rudder);
+                                if (_value.level_down()) {
+                                    _value.to_float(speed, rudder);
+                                    update_ff({speed, rudder}, false);
+                                }
                                 return true;
                         }
                     break;
                 case 2:
                     switch (event.number) {
                         case 0:
-                            _state.set_direction(event.value);
-                            value_updated(speed, rudder);
+                            _value.set_direction(event.value);
+                            _value.to_float(speed, rudder);
+                            update_ff({speed, rudder}, false);
                             return true;
                         case 1:
-                            if (_state.sternway(event.value)) {
-                                value_updated(speed, rudder);
+                            if (_value.sternway(event.value)) {
+                                _value.to_float(speed, rudder);
+                                update_ff({speed, rudder}, false);
                                 return true;
                             }
                             break;
                         case 2:
-                            _state.set_power(event.value);
-                            value_updated(speed, rudder);
+                            _value.set_power(event.value);
+                            _value.to_float(speed, rudder);
+                            update_ff({speed, rudder}, false);
                             return true;
                     }
                     break;
             }
         }
+    }
+
+    void set_state(float speed, float rudder) {
+        update_ff({speed, rudder}, true);
     }
 };
 
@@ -223,31 +243,47 @@ void steering_t::close() {
         _context->close();
 }
 
-bool steering_t::wait_event(float &speed, float &rudder) {
-    return _context ? _context->wait_event(speed, rudder) : false;
+bool steering_t::wait_event(float &speed, float &rudder, int timeout) {
+    return _context ? _context->wait_event(speed, rudder, timeout) : false;
 }
 
+void steering_t::set_state(float speed, float rudder) {
+    if (_context)
+        _context;
+}
+
+std::shared_ptr<steering_t> steering();
 std::atomic<physical> _target;
 
-bool wait_event(float &speed, float &rudder) {
-    const char *name;
-    auto &steering = steering_t::global(name);
-    if (name && steering.wait_event(speed, rudder)) {
-        _target.store({speed, rudder});
+bool wait_event(float &speed, float &rudder, int timeout) {
+    auto _steering = steering();
+    if (_steering && _steering->wait_event(speed, rudder, timeout)) {
+        _target = {speed, rudder};
         return true;
     } else {
-        _target.store(physical_zero);
+        _target = physical_zero;
         return false;
     }
 }
 
 void set_state(float &speed, float &rudder) {
-    auto target = _target.load();
-    speed = target.speed;
-    rudder = target.rudder;
+    auto _steering = steering();
+    if (_steering) {
+        _steering->set_state(speed, rudder);
+        auto target = _target.load();
+        speed = target.speed;
+        rudder = target.rudder;
+    } else {
+        _target = physical_zero;
+        speed = 0;
+        rudder = NAN;
+    }
 }
 
-steering_t &steering_t::global(const char *&name_) {
+void next_pose(float &x, float &y, float &theta) {
+}
+
+std::shared_ptr<steering_t> steering() {
     constexpr static auto
         N_PREFIX = "N: Name=",
         H_PREFIX = "H: Handlers=",
@@ -257,13 +293,18 @@ steering_t &steering_t::global(const char *&name_) {
         H_PREFIX_LEN = std::strlen(H_PREFIX),
         FF_PREFIX_LEN = std::strlen(FF_PREFIX);
 
+    static std::shared_ptr<steering_t> _steering;
     static std::string name;
-    static steering_t steering;
+    static char line[512];
+    static std::shared_mutex looking_for;
 
-    if (steering.open()) {
-        name_ = name.c_str();
-        return steering;
-    }
+    std::shared_lock<decltype(looking_for)> lock(looking_for);
+    if (_steering && _steering->open())
+        return _steering;
+
+    std::unique_lock<decltype(looking_for)> retry(looking_for);
+    if (_steering && _steering->open())
+        return _steering;
 
     // I: Bus=0003 Vendor=046d Product=c24f Version=0111
     // N: Name="Logitech G29 Driving Force Racing Wheel"
@@ -280,7 +321,6 @@ steering_t &steering_t::global(const char *&name_) {
 
     std::ifstream file("/proc/bus/input/devices");
     std::string event, js;
-    char line[512];
 
     while (file.getline(line, sizeof line))
         if (std::strlen(line) < 3) {
@@ -303,52 +343,10 @@ steering_t &steering_t::global(const char *&name_) {
                    !event.empty() &&
                    !js.empty()) {
             steering_t temp(event.c_str(), js.c_str());
-            if (temp.open()) {
-                steering = std::move(temp);
-                break;
-            } else
-                name.clear();
+            if (temp.open())
+                return _steering = std::make_shared<steering_t>(std::move(temp));
+            name.clear();
         }
 
-    name_ = steering.open() ? name.c_str() : nullptr;
-    return steering;
+    return _steering = nullptr;
 }
-
-/// constant force
-
-// /* Initialize constant force effect */
-// ff_effect effect{
-//     .type = FF_CONSTANT,
-//     .id = -1,
-//     .direction = 0xc000,
-//     .trigger{},
-//     .replay{.length = 0xffff, .delay = 0},
-//     .u{.constant{
-//         .level = 10000,
-//         .envelope{
-//             .attack_length = 0,
-//             .attack_level = 0,
-//             .fade_length = 0,
-//             .fade_level = 0,
-//         }}},
-// };
-
-// /* Upload effect */
-// if (ioctl(event, EVIOCSFF, &effect) < 0)
-// {
-//     fprintf(stderr, "ERROR: uploading effect failed (%s) [%s:%d]\n", strerror(errno), __FILE__, __LINE__);
-//     return 1;
-// }
-
-// /* Start effect */
-// input_event msg{
-//     .time{},
-//     .type = EV_FF,
-//     .code = static_cast<uint16_t>(effect.id),
-//     .value = 1,
-// };
-// if (write(event, &msg, sizeof(msg)) != sizeof(msg))
-// {
-//     std::cerr << "failed to start effect: " << strerror(errno) << std::endl;
-//     return 1;
-// }

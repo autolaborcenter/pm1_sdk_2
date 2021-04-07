@@ -6,7 +6,7 @@
 int main() {
     float speed, rudder;
     while (true) {
-        while (wait_event(speed, rudder))
+        while (wait_event(speed, rudder, -1))
             std::cout << speed << " | " << rudder << std::endl;
         std::cout << "disconnected" << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(1));

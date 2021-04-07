@@ -1,7 +1,7 @@
 #include "../app/pm1_driver_common.h"
 
-#include "g29/steering_t.hh"
 #include "chassis_model_t.hh"
+#include "g29/steering_t.hh"
 
 #include <fcntl.h>  // open
 #include <termios.h>// config
@@ -103,7 +103,7 @@ int main() {
     auto thread = std::thread([&mutex, &chassis] {
         float speed, rudder;
         while (true) {
-            while (wait_event(speed, rudder)) {
+            while (wait_event(speed, rudder, 100)) {
                 std::cout << speed << " | " << rudder << std::endl;
                 std::unique_lock<std::mutex> lock(mutex);
                 if (chassis.empty())

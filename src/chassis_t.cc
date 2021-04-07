@@ -54,11 +54,11 @@ namespace autolabor::pm1 {
               _target(physical_zero),
               _alive(true) {}
 
-        [[nodiscard]] bool alive() const {
+        bool alive() const {
             return _alive && clock::now() < _rudder_received + std::chrono::milliseconds(200);
         }
 
-        [[nodiscard]] uint8_t battery_percent() const {
+        uint8_t battery_percent() const {
             return _battery_percent;
         }
 

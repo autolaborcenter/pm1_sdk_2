@@ -6,8 +6,6 @@ class steering_t {
     context_t *_context;
 
 public:
-    static steering_t &global(const char *&);
-
     steering_t();
     steering_t(const char *, const char *);
     steering_t(steering_t const &) = delete;
@@ -19,12 +17,14 @@ public:
     bool open();
     void close();
 
-    bool wait_event(float &, float &);
+    bool wait_event(float &, float &, int);
+    void set_state(float, float);
 };
 
 extern "C" {
-bool wait_event(float &, float &);
-void set_state(float &, float &);
+bool wait_event(float &speed, float &rudder, int timeout);
+void set_state(float &speed, float &rudder);
+void next_pose(float &x, float &y, float &theta);
 }
 
 #endif// STEERING_T_HH
