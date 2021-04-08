@@ -18,8 +18,9 @@ extern "C" {
 #include <fstream>
 
 #include <algorithm>
+#include <atomic>
 #include <memory>
-#include <shared_mutex>
+#include <mutex>
 
 /** int16_t to float */
 class g29_value_t {
@@ -257,8 +258,8 @@ void steering_t::set_state(float speed, float rudder) {
 }
 
 std::shared_ptr<steering_t> steering(bool);
-std::atomic<physical> _current({0, 0}), _target({0, 0});
-physical _state0, _state1;
+std::atomic<physical> _current({0, 0}), _target(physical_zero);
+physical _state0{}, _state1{.2f, 0};
 autolabor::odometry_t _pose;
 
 bool wait_event(float &speed, float &rudder, int timeout) {
@@ -289,7 +290,9 @@ void set_state(float &speed, float &rudder) {
 
 void freeze_state() {
     _state0 = _current;
-    _state1 = _target;
+    _state1.rudder = _target.load().rudder;
+    if (std::isnan(_state1.rudder))
+        _state1.rudder = _state0.rudder;
     _pose = {};
 }
 
@@ -321,16 +324,15 @@ std::shared_ptr<steering_t> steering(bool try_) {
     static std::shared_ptr<steering_t> _steering;
     static std::string name;
     static char line[512];
-    static std::shared_mutex looking_for;
+    static std::recursive_mutex looking_for;
 
-    std::shared_lock<decltype(looking_for)> lock(looking_for);
+    std::lock_guard<decltype(looking_for)> lock(looking_for);
     if (_steering && _steering->open())
         return _steering;
 
     if (!try_)
         return nullptr;
 
-    std::unique_lock<decltype(looking_for)> try_lock(looking_for);
     if (_steering && _steering->open())
         return _steering;
 
