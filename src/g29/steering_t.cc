@@ -96,7 +96,7 @@ class steering_t::context_t {
         else if (_state_updated != clock::time_point::min() &&
                  clock::now() > _state_updated + std::chrono::seconds(1))
             p = physical_zero;
-        update_autocenter(0x2800 + 0x6000 * std::abs(physical_to_velocity(p, &_chassis).v));
+        update_autocenter(0x2800 + 0x4000 * std::abs(physical_to_velocity(p, &_chassis).v));
     }
 
 public:
