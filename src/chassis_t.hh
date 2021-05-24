@@ -29,6 +29,7 @@ namespace autolabor::pm1 {
         void close();
 
         void state(float &speed, float &rudder) const;
+        void target(float &speed, float &rudder) const;
 
         void set_physical(float &speed, float &rudder);
     };

@@ -74,6 +74,10 @@ namespace autolabor::pm1 {
             return _current;
         }
 
+        physical target() const {
+            return _target;
+        }
+
         void communicate(uint8_t *&buffer, uint8_t &size) {
             auto release = false;
             auto rudder = NAN;
@@ -171,6 +175,12 @@ namespace autolabor::pm1 {
 
     void chassis_t::state(float &speed, float &rudder) const {
         auto state = _implement->state();
+        speed = state.speed;
+        rudder = state.rudder;
+    }
+
+    void chassis_t::target(float &speed, float &rudder) const {
+         auto state = _implement->target();
         speed = state.speed;
         rudder = state.rudder;
     }

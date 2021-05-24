@@ -49,6 +49,7 @@ elseif (UNIX)
 
     add_executable(g29_test test/g29_display.cpp)
     add_executable(pm1_g29_test test/pm1_with_g29.cpp)
+    add_executable(servo app/servo.cpp)
 
     if (architecture STREQUAL "aarch64")
         add_library(g29_aarch64 SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE} src/odometry_t.hpp)

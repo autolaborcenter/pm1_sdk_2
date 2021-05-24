@@ -1,12 +1,16 @@
 #include "pm1_driver_common.h"
 
-#include "chassis_model_t.hh"
+#include "odometry_t.hpp"
+#include "servo.hpp"
 
 #include <fcntl.h>  // open
 #include <termios.h>// config
 #include <unistd.h> // close
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 using namespace autolabor::pm1;
@@ -20,36 +24,40 @@ int main() {
                 if (name != "ttyACM0")
                     ports.emplace_back(std::move(name));
         }
-    
+
     std::unordered_map<std::string, chassis_t> chassis;
     std::mutex mutex;
     std::condition_variable signal;
+    servo_t servo;
     for (const auto &name : ports) {
         std::filesystem::path path("/dev");
         auto fd = open(path.append(name).c_str(), O_RDWR);
-        if (fd <= 0)
-            continue;
-        
+        if (fd < 0) continue;
+
         // @see https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
         termios tty{};
         cfsetspeed(&tty, B115200);
         tty.c_cflag |= CS8;           // 8 bits per byte
         tty.c_cflag |= CREAD | CLOCAL;// Turn on READ & ignore ctrl lines (CLOCAL = 1)
-        
+
         tty.c_cc[VTIME] = 5;// Wait for up to 500ms, returning as soon as any data is received.
         tty.c_cc[VMIN] = 0;
-        
+
         if (tcsetattr(fd, TCSAFLUSH, &tty)) {
             close(fd);
             continue;
         }
-        
+
         using HANDLE = decltype(fd);
         auto map_iterator = chassis.try_emplace(name).first;
         std::shared_ptr<HANDLE> fd_ptr(
             new HANDLE(fd),
-            [map_iterator, &chassis, &mutex, &signal](auto p) {
-                close(*p);
+            [map_iterator, &chassis, &mutex, &signal, &servo, &name](auto p) {
+                servo_t temp(*p);
+                if (temp) {
+                    servo = std::move(temp);
+                } else
+                    close(*p);
                 delete p;
                 std::unique_lock<std::mutex> lock(mutex);
                 chassis.erase(map_iterator);
@@ -58,7 +66,7 @@ int main() {
                     signal.notify_all();
                 }
             });
-        
+
         std::thread([ptr = &map_iterator->second, fd_ptr] {
             uint8_t buffer[64];
             uint8_t size = 0;
@@ -75,12 +83,12 @@ int main() {
             } while (ptr->alive());
             ptr->close();
         }).detach();
-        
+
         std::thread([ptr = &map_iterator->second, fd_ptr] {
             auto msg = loop_msg_t();
             auto t0 = std::chrono::steady_clock::now();
             for (uint64_t i = 0; ptr->alive(); ++i) {
-                auto[buffer, size] = msg[i];
+                auto [buffer, size] = msg[i];
                 if (write(*fd_ptr, buffer, size) <= 0)
                     break;
                 delete[] buffer;
@@ -89,12 +97,39 @@ int main() {
             ptr->close();
         }).detach();
     }
-    
-    launch_parser(mutex, signal, chassis).detach();
-    
+
+    using clock = std::chrono::steady_clock;
+    using stamp_t = clock::time_point;
+
+    stamp_t control_timeout = clock::now();
+
+    launch_parser(mutex, signal, chassis, [&](auto state, auto target) {
+        if (target.speed != 0) {
+            control_timeout = clock::now() + std::chrono::milliseconds(1500);
+            servo(1500);
+        }
+    }).detach();
+
+    std::thread([&] {
+        while (true) {
+            auto now = clock::now();
+            if (now < control_timeout) {
+                std::this_thread::sleep_until(control_timeout);
+                continue;
+            }
+            if (chassis.size() == 1) {
+                float _, rudder;
+                chassis.begin()->second.target(_, rudder);
+                servo(1500 - rudder / pi_f * 1999);
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            } else
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+    }).detach();
+
     std::unique_lock<std::mutex> lock(mutex);
     while (!chassis.empty())
         signal.wait(lock);
-    
+
     return 0;
 }

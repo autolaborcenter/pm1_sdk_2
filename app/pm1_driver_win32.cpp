@@ -47,8 +47,7 @@ int main() {
         if (p < 0 || p >= name.size())
             continue;
         auto q = p + 2;
-        while (std::isdigit(name[++q]))
-            ;
+        while (std::isdigit(name[++q]));
 
         auto path = R"(\\.\)" + name.substr(p, q - p);
 
@@ -96,7 +95,7 @@ int main() {
             OVERLAPPED overlapped;
             do {
                 overlapped = {.hEvent = &context};
-                ReadFileEx(*fd_ptr, context.buffer + context.size, sizeof(context.buffer) - context.size, &overlapped, &read_callback);
+                std::ignore = ReadFileEx(*fd_ptr, context.buffer + context.size, sizeof(context.buffer) - context.size, &overlapped, &read_callback);
             } while (SleepEx(500, true) == WAIT_IO_COMPLETION && ptr->alive());
             ptr->close();
         }).detach();
