@@ -25,8 +25,7 @@ namespace autolabor::pm1 {
     std::thread launch_parser(
         std::mutex &,
         std::condition_variable &,
-        std::unordered_map<std::string, chassis_t> &,
-        std::function<void(physical, physical)> const &);
+        std::unordered_map<std::string, chassis_t> &);
 }// namespace autolabor::pm1
 
 #endif// PM1_DRIVER_COMMON_H

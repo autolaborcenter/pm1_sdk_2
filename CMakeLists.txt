@@ -7,7 +7,7 @@ set(CMAKE_BUILD_TYPE Release)
 
 include_directories(src)
 
-set(CONTROL_MODEL_SOURCE 
+set(CONTROL_MODEL_SOURCE
         src/control_model/pi.h
 
         src/control_model/model.h
@@ -43,13 +43,17 @@ if (WIN32)
 
     add_executable(pm1_driver_win32 app/pm1_driver_win32.cpp)
     target_link_libraries(pm1_driver_win32 app_common)
+
 elseif (UNIX)
 
     EXECUTE_PROCESS(COMMAND uname -m OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE architecture)
 
     add_executable(g29_test test/g29_display.cpp)
     add_executable(pm1_g29_test test/pm1_with_g29.cpp)
-    add_executable(servo app/servo.cpp)
+
+    add_executable(servo_test test/servo_test.cpp)
+    add_executable(pm1_with_udp app/pm1_with_udp.cpp)
+    add_executable(g29_with_udp app/g29_with_udp.cpp)
 
     if (architecture STREQUAL "aarch64")
         add_library(g29_aarch64 SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE} src/odometry_t.hpp)
@@ -59,6 +63,8 @@ elseif (UNIX)
 
         target_link_libraries(g29_test g29_aarch64)
         target_link_libraries(pm1_g29_test g29_aarch64 app_common)
+        target_link_libraries(pm1_with_udp g29_aarch64 app_common)
+        target_link_libraries(g29_with_udp g29_aarch64 app_common)
     else ()
         add_library(g29_unix SHARED src/g29/steering_t.hh src/g29/steering_t.cc ${CONTROL_MODEL_SOURCE} src/odometry_t.hpp)
 
@@ -67,6 +73,8 @@ elseif (UNIX)
 
         target_link_libraries(g29_test g29_unix)
         target_link_libraries(pm1_g29_test g29_unix app_common)
+        target_link_libraries(pm1_with_udp g29_unix app_common)
+        target_link_libraries(g29_with_udp g29_unix app_common)
     endif ()
 
 endif ()

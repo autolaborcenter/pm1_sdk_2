@@ -42,8 +42,7 @@ namespace autolabor::pm1 {
     std::thread launch_parser(
         std::mutex &mutex,
         std::condition_variable &signal,
-        std::unordered_map<std::string, chassis_t> &chassis,
-        std::function<void(physical, physical)> const &target_updated) {
+        std::unordered_map<std::string, chassis_t> &chassis) {
         return std::thread([&] {
             char line[64];
             while (std::cin.getline(line, sizeof line)) {
@@ -77,9 +76,6 @@ namespace autolabor::pm1 {
                             }
                             if (!failed) {
                                 p->second.set_physical(speed, rudder);
-                                physical state;
-                                p->second.state(state.speed, state.rudder);
-                                target_updated(state, {speed, rudder});
                                 std::cout << "P " << name << ' ' << speed << ' ' << rudder << std::endl;
                             }
                         }
