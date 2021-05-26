@@ -46,7 +46,7 @@ public:
     }
 
     bool level_up() {
-        if (_level < _max_level) {
+        if (0 < _level && _level < _max_level) {
             ++_level;
             return true;
         }

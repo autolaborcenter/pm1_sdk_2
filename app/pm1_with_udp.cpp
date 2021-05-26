@@ -114,11 +114,13 @@ int main() {
                 std::unique_lock<std::mutex> lock(mutex);
                 if (chassis.size() == 1) {
                     auto temp = reinterpret_cast<physical *>(buffer);
-                    chassis.begin()->second.set_physical(temp->speed, temp->rudder);
                     if (temp->speed != 0) {
                         control_timeout = clock::now() + std::chrono::milliseconds(1500);
-                        servo(1500);
+                        auto dir = 1450 + (temp->speed > 0 ? -temp->rudder : +temp->rudder) / pi_f * 500;
+                        servo(dir);
+                        std::cout << temp->speed << " | " << temp->rudder << " | " << dir << std::endl;
                     }
+                    chassis.begin()->second.set_physical(temp->speed, temp->rudder);
                 } else {
                     lock.unlock();
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -137,7 +139,7 @@ int main() {
             if (chassis.size() == 1) {
                 float _, rudder;
                 chassis.begin()->second.target(_, rudder);
-                servo(1500 - rudder / pi_f * 1999);
+                servo(1450 - rudder / pi_f * 1949);
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             } else
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
