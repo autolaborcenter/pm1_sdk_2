@@ -40,7 +40,7 @@ namespace autolabor::pm1 {
         };
 
         active_sending_t next_to_send();
-        void update(physical &);
+        void set_target(physical);
         void close();
     };
 }// namespace autolabor::pm1

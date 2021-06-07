@@ -16,9 +16,9 @@ int main() {
 
     physical last, target;
     while (wait_event(target.speed, target.rudder, 50)) {
-        std::cout << target.speed << " | " << target.rudder << std::endl;
         if (!target.speed && target.speed == last.speed && target.rudder == last.rudder)
             continue;
+        std::cout << target.speed << " | " << target.rudder << std::endl;
         last = target;
         sendto(udp, &target, sizeof(target), MSG_WAITALL, reinterpret_cast<sockaddr *>(&remote), sizeof(remote));
     }

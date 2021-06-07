@@ -189,6 +189,6 @@ namespace autolabor::pm1 {
     physical chassis_t::target() const { return _implement->target(); }
 
     chassis_t::active_sending_t chassis_t::next_to_send() { return _implement->next_to_send(); }
-    void chassis_t::update(physical &state) { _implement->set_target(std::exchange(state, _implement->current())); }
+    void chassis_t::set_target(physical state) { _implement->set_target(state); }
     void chassis_t::close() { _implement->close(); }
 }// namespace autolabor::pm1

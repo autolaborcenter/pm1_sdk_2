@@ -41,7 +41,7 @@ int main() {
                         }
                         if (!failed) {
                             physical target{speed, rudder};
-                            p->second.update(target);
+                            p->second.set_target(target);
                             std::cout << "P " << name << ' ' << speed << ' ' << rudder << std::endl;
                         }
                     }

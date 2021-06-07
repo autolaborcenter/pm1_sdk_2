@@ -54,10 +54,13 @@ int main(int argc, char *argv[]) {
         while (true) {
             auto n = read(udp, buffer, sizeof(buffer));
             if (n == sizeof(physical)) {
+                auto temp = reinterpret_cast<physical *>(buffer);
+                std::cout << temp->speed << " | " << temp->rudder << std::endl;
+
                 std::unique_lock<std::mutex> lock(mutex);
                 if (chassis.size() == 1) {
-                    auto temp = reinterpret_cast<physical *>(buffer);
-                    chassis.begin()->second.update(*temp);
+                    chassis.begin()->second.set_target(*temp);
+                    lock.unlock();
 
                     control_timeout = clock::now() + std::chrono::milliseconds(2000);
                     auto dir = temp->speed < 0
@@ -66,7 +69,6 @@ int main(int argc, char *argv[]) {
                                    ? 1475 - temp->rudder / pi_f * 500
                                    : 1475 - temp->rudder / pi_f * (1475 - 501) * 2;
                     servo(dir);
-                    std::cout << temp->speed << " | " << temp->rudder << " | " << dir << std::endl;
                 } else {
                     lock.unlock();
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
