@@ -15,7 +15,7 @@ int main() {
     inet_pton(AF_INET, "6.0.0.3", &remote.sin_addr);
 
     float speed, rudder;
-    while (wait_event(speed, rudder, 100)) {
+    while (wait_event(speed, rudder, -1)) {
         std::cout << speed << " | " << rudder << std::endl;
         physical temp{speed, rudder};
         sendto(udp, &temp, sizeof(temp), MSG_WAITALL, reinterpret_cast<sockaddr *>(&remote), sizeof(remote));
