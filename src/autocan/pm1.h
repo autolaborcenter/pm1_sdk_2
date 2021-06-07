@@ -10,7 +10,8 @@
 namespace autolabor::can::pm1 {
 #define MSG_DIALOG(MSG_TYPE, NAME) using NAME = dialog<MSG_TYPE>
 #define MSG_DIALOG_(CLASS, MSG_TYPE, NAME) using NAME = typename CLASS::template dialog<MSG_TYPE>
-#define MSG_TX_(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::rx
+#define MSG_INFO(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::rx
+#define MSG_CMD(CLASS, MSG_TYPE, NAME) constexpr static auto NAME = CLASS::template dialog<MSG_TYPE>::tx
 
     template<auto _type, auto _index>
     struct node {
@@ -48,27 +49,27 @@ namespace autolabor::can::pm1 {
         MSG_DIALOG_(vcu, 5, battery_current);
         MSG_DIALOG_(vcu, 6, control_pad);
         MSG_DIALOG_(vcu, 7, power_switch);
-        MSG_TX_(vcu, 8, target_speed);
+        MSG_INFO(vcu, 8, target_speed);
     };
 
     template<auto _index>
     struct ecu : public node<0x11, _index> {
-        MSG_TX_(ecu, 1, target_speed);
+        MSG_INFO(ecu, 1, target_speed);
         MSG_DIALOG_(ecu, 5, current_speed);
         MSG_DIALOG_(ecu, 6, current_position);
-        MSG_TX_(ecu, 7, encoder_reset);
-        MSG_TX_(ecu, 10, command_timeout);
+        MSG_CMD(ecu, 7, encoder_reset);
+        MSG_INFO(ecu, 10, command_timeout);
     };
 
     template<auto _index>
     struct tcu : public node<0x12, _index> {
-        MSG_TX_(tcu, 1, target_position);
-        MSG_TX_(tcu, 2, increment_position);
+        MSG_INFO(tcu, 1, target_position);
+        MSG_INFO(tcu, 2, increment_position);
         MSG_DIALOG_(tcu, 3, current_position);
-        MSG_TX_(tcu, 4, target_speed);
+        MSG_INFO(tcu, 4, target_speed);
         MSG_DIALOG_(tcu, 5, current_speed);
-        MSG_TX_(tcu, 6, set_zero);
-        MSG_TX_(tcu, 7, command_timeout);
+        MSG_CMD(tcu, 6, set_zero);
+        MSG_INFO(tcu, 7, command_timeout);
     };
 
     using every_node = node<0x3f, 0x0f>;

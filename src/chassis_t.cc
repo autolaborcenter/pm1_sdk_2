@@ -12,6 +12,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -28,10 +29,12 @@ namespace autolabor::pm1 {
             } data;
         };
 
+        uint8_t _bytes_to_send[24], _times_to_send;
+
         std::unordered_map<decltype(controller_t::key), uint8_t> _states;
         uint8_t _battery_percent;
 
-        clock::time_point _target_set, _rudder_received;
+        clock::time_point _target_set, _rudder_received, _active_send;
         physical _current, _target;
         bool _alive;
 
@@ -49,20 +52,41 @@ namespace autolabor::pm1 {
             : _battery_percent(0),
               _target_set(clock::time_point::min()),
               _rudder_received(clock::now()),
+              _active_send(_rudder_received - model.period()),
+              _times_to_send(0),
               _current(physical_zero),
               _target(physical_zero),
-              _alive(true) {}
-
-        bool alive() const {
-            return _alive && clock::now() < _rudder_received + std::chrono::milliseconds(200);
+              _alive(true) {
+#define SET_HEADER(N) *reinterpret_cast<can::header_t *>(_bytes_to_send + (N)) = can::pm1
+            SET_HEADER(0)::every_tcu::current_position::tx;
+            SET_HEADER(6)::every_ecu::current_position::tx;
+            SET_HEADER(12)::every_node::state::tx;
+            SET_HEADER(18)::every_vcu::battery_percent::tx;
+#undef SET_HEADER
+            for (auto i = 0; i < sizeof(_bytes_to_send); i += 6)
+                _bytes_to_send[i + 5] = can::crc_calculate(_bytes_to_send + i + 1, _bytes_to_send + i + 5);
         }
 
-        uint8_t battery_percent() const {
-            return _battery_percent;
-        }
+        bool alive() const { return _alive && clock::now() < _rudder_received + std::chrono::milliseconds(200); }
+        uint8_t battery_percent() const { return _battery_percent; }
+        physical current() const { return _current; }
+        physical target() const { return _target; }
 
-        void close() {
-            _alive = false;
+        active_sending_t next_to_send() {
+            auto now = clock::now();
+            while (_active_send < now) {
+                _active_send += model.period();
+                ++_times_to_send;
+            }
+            using namespace std::chrono_literals;
+            uint8_t size = _times_to_send % (10s / model.period()) == 0
+                               ? 24
+                           : _times_to_send % (400ms / model.period()) == 0
+                               ? 18
+                           : _times_to_send % 2 == 0
+                               ? 12
+                               : 6;
+            return {_active_send, _bytes_to_send, size};
         }
 
         void set_target(physical target) {
@@ -70,13 +94,7 @@ namespace autolabor::pm1 {
             _target = target;
         }
 
-        physical state() const {
-            return _current;
-        }
-
-        physical target() const {
-            return _target;
-        }
+        void close() { _alive = false; }
 
         void communicate(uint8_t *&buffer, uint8_t &size) {
             auto release = false;
@@ -158,39 +176,19 @@ namespace autolabor::pm1 {
     };
 
     chassis_t::chassis_t() : _implement(new implement_t) {}
-
+    chassis_t::chassis_t(chassis_t &&others) noexcept : _implement(std::exchange(others._implement, nullptr)) {}
     chassis_t::~chassis_t() { delete _implement; }
 
     void chassis_t::communicate(uint8_t *&buffer, uint8_t &size) {
         _implement->communicate(buffer, size);
     }
 
-    bool chassis_t::alive() const {
-        return _implement->alive();
-    }
+    bool chassis_t::alive() const { return _implement->alive(); }
+    uint8_t chassis_t::battery_percent() const { return _implement->battery_percent(); }
+    physical chassis_t::current() const { return _implement->current(); }
+    physical chassis_t::target() const { return _implement->target(); }
 
-    uint8_t chassis_t::battery_percent() const {
-        return _implement->battery_percent();
-    }
-
-    void chassis_t::state(float &speed, float &rudder) const {
-        auto state = _implement->state();
-        speed = state.speed;
-        rudder = state.rudder;
-    }
-
-    void chassis_t::target(float &speed, float &rudder) const {
-         auto state = _implement->target();
-        speed = state.speed;
-        rudder = state.rudder;
-    }
-
-    void chassis_t::set_physical(float &speed, float &rudder) {
-        _implement->set_target({speed, rudder});
-        state(speed, rudder);
-    }
-
-    void chassis_t::close() {
-        _implement->close();
-    }
+    chassis_t::active_sending_t chassis_t::next_to_send() { return _implement->next_to_send(); }
+    void chassis_t::update(physical &state) { _implement->set_target(std::exchange(state, _implement->current())); }
+    void chassis_t::close() { _implement->close(); }
 }// namespace autolabor::pm1

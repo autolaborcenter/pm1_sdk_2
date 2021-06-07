@@ -47,7 +47,8 @@ int main() {
         if (p < 0 || p >= name.size())
             continue;
         auto q = p + 2;
-        while (std::isdigit(name[++q]));
+        while (std::isdigit(name[++q]))
+            ;
 
         auto path = R"(\\.\)" + name.substr(p, q - p);
 
