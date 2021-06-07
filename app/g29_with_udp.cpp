@@ -14,11 +14,13 @@ int main() {
     sockaddr_in remote{.sin_family = AF_INET, .sin_port = 33333};
     inet_pton(AF_INET, "6.0.0.3", &remote.sin_addr);
 
-    float speed, rudder;
-    while (wait_event(speed, rudder, -1)) {
-        std::cout << speed << " | " << rudder << std::endl;
-        physical temp{speed, rudder};
-        sendto(udp, &temp, sizeof(temp), MSG_WAITALL, reinterpret_cast<sockaddr *>(&remote), sizeof(remote));
+    physical last, target;
+    while (wait_event(target.speed, target.rudder, 50)) {
+        std::cout << target.speed << " | " << target.rudder << std::endl;
+        if (!target.speed && target.speed == last.speed && target.rudder == last.rudder)
+            continue;
+        last = target;
+        sendto(udp, &target, sizeof(target), MSG_WAITALL, reinterpret_cast<sockaddr *>(&remote), sizeof(remote));
     }
     return 0;
 }
