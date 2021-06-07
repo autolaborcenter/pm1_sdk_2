@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
         std::unique_lock<decltype(mutex)> lock(mutex);
         while (chassis.size() > 1) signal.wait(lock);
         if (chassis.size() == 1) {
+            lock.unlock();
             for (const auto &name : list_ports()) {
                 servo_t temp(open_serial(name));
                 if (temp) {
@@ -86,10 +87,14 @@ int main(int argc, char *argv[]) {
             }
             std::unique_lock<decltype(mutex)> lock(mutex);
             if (chassis.size() == 1) {
-                servo(1475 - chassis.begin()->second.current().rudder / pi_f * (1475 - 501) * 2);
+                auto rudder = chassis.begin()->second.current().rudder;
+                lock.unlock();
+                servo(1475 - rudder / pi_f * (1475 - 501) * 2);
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            } else
+            } else {
+                lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
         }
     }).detach();
 
