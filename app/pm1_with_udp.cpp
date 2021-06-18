@@ -12,7 +12,10 @@
 using namespace autolabor::pm1;
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) return 1;
+    if (argc < 2) {
+        std::cerr << "need a port to bind" << std::endl;
+        return 1;
+    }
     int port;
     try {
         port = std::stoi(argv[1]);
@@ -24,27 +27,43 @@ int main(int argc, char *argv[]) {
     std::condition_variable signal;
 
     auto chassis = scan_chassis(mutex, signal);
-    servo_t servo;
-
     {
         std::unique_lock<decltype(mutex)> lock(mutex);
-        while (chassis.size() > 1) signal.wait(lock);
-        if (chassis.size() == 1) {
-            lock.unlock();
-            for (const auto &name : list_ports()) {
-                servo_t temp(open_serial(name));
-                if (temp) {
-                    servo = std::move(temp);
-                    std::cout << "servo name = " << name << std::endl;
-                    break;
-                }
-            }
-        } else
-            return 1;
+        signal.wait(lock, [&chassis] { return chassis.size() <= 1; });
+        if (!chassis.size()) return 1;
     }
 
     using clock = std::chrono::steady_clock;
     auto control_timeout = clock::now();
+
+    servo_t servo;
+    std::thread([&] {
+        for (const auto &name : list_ports()) {
+            servo_t temp(open_serial(name));
+            if (temp) {
+                servo = std::move(temp);
+                std::cout << "servo name = " << name << std::endl;
+                break;
+            }
+        }
+        while (servo) {
+            auto now = clock::now();
+            if (now < control_timeout) {
+                std::this_thread::sleep_until(control_timeout);
+                continue;
+            }
+            std::unique_lock<decltype(mutex)> lock(mutex);
+            if (chassis.size() == 1) {
+                auto rudder = chassis.begin()->second.current().rudder;
+                lock.unlock();
+                servo(1475 - rudder / pi_f * (1475 - 501) * 2);
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            } else {
+                lock.unlock();
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+        }
+    }).detach();
 
     std::thread([&, port] {
         auto udp = socket(AF_INET, SOCK_DGRAM, 0);
@@ -78,28 +97,8 @@ int main(int argc, char *argv[]) {
         }
     }).detach();
 
-    std::thread([&] {
-        while (true) {
-            auto now = clock::now();
-            if (now < control_timeout) {
-                std::this_thread::sleep_until(control_timeout);
-                continue;
-            }
-            std::unique_lock<decltype(mutex)> lock(mutex);
-            if (chassis.size() == 1) {
-                auto rudder = chassis.begin()->second.current().rudder;
-                lock.unlock();
-                servo(1475 - rudder / pi_f * (1475 - 501) * 2);
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            } else {
-                lock.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            }
-        }
-    }).detach();
-
     std::unique_lock<decltype(mutex)> lock(mutex);
-    while (!chassis.empty()) signal.wait(lock);
+    signal.wait(lock, [&chassis] { return chassis.empty(); });
 
     return 0;
 }
