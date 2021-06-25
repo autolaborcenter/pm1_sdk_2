@@ -16,7 +16,7 @@ int main() {
                 std::cout << target.speed << " | " << target.rudder << std::endl;
                 std::unique_lock<decltype(mutex)> lock(mutex);
                 if (chassis.size() == 1)
-                    chassis.begin()->second.set_target(target);
+                    chassis.begin()->second->set_target(target);
             }
             std::cout << "disconnected" << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(1));

@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-std::unordered_map<std::string, autolabor::pm1::chassis_t>
+std::unordered_map<std::string, std::shared_ptr<autolabor::pm1::chassis_t>>
 scan_chassis(std::mutex &mutex, std::condition_variable &signal);
 
 #endif// PM1_DRIVER_COMMON_H

@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
             }
             std::unique_lock<decltype(mutex)> lock(mutex);
             if (chassis.size() == 1) {
-                auto rudder = chassis.begin()->second.current().rudder;
+                auto rudder = chassis.begin()->second->current().rudder;
                 lock.unlock();
                 servo(1475 - rudder / pi_f * (1475 - 501) * 2);
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 
                 std::unique_lock<std::mutex> lock(mutex);
                 if (chassis.size() == 1) {
-                    chassis.begin()->second.set_target(*temp);
+                    chassis.begin()->second->set_target(*temp);
                     lock.unlock();
 
                     control_timeout = clock::now() + std::chrono::milliseconds(2000);
