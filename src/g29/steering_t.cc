@@ -1,10 +1,10 @@
 #include "steering_t.hh"
 
-#include "odometry_t.hpp"
+#include "src/odometry_t.hpp"
 
 extern "C" {
-#include "control_model/model.h"
-#include "control_model/optimization.h"
+#include "src/control_model/model.h"
+#include "src/control_model/optimization.h"
 }
 
 #include <fcntl.h>

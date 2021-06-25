@@ -1,5 +1,5 @@
-#include "../app/pm1_driver_common.h"
-#include "g29/steering_t.hh"
+#include "app/pm1_driver_common.h"
+#include "src/g29/steering_t.hh"
 
 #include <iostream>
 #include <thread>

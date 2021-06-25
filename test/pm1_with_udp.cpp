@@ -1,6 +1,6 @@
-#include "pm1_driver_common.h"
-#include "serial_linux.h"
-#include "servo.hpp"
+#include "app/pm1_driver_common.h"
+#include "app/serial_linux.h"
+#include "src/servo.hpp"
 
 #include <linux/socket.h>
 #include <netinet/in.h>

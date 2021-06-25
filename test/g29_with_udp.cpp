@@ -1,6 +1,6 @@
-#include "g29/steering_t.hh"
+#include "src/g29/steering_t.hh"
 extern "C" {
-#include "control_model/model.h"
+#include "src/control_model/model.h"
 }
 
 #include <arpa/inet.h>

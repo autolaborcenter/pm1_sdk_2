@@ -1,7 +1,7 @@
 #ifndef PM1_DRIVER_COMMON_H
 #define PM1_DRIVER_COMMON_H
 
-#include "chassis_t.hh"
+#include "src/chassis_t.hh"
 
 #include <condition_variable>
 #include <string>

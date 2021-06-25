@@ -1,5 +1,5 @@
-#include "../app/serial_linux.h"
-#include "servo.hpp"
+#include "app/serial_linux.h"
+#include "src/servo.hpp"
 
 #include <iostream>
 
