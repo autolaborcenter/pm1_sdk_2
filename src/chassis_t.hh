@@ -5,6 +5,8 @@
 #ifndef PM1_SDK_2_CHASSIS_T_HH
 #define PM1_SDK_2_CHASSIS_T_HH
 
+#include "odometry_t.hpp"
+
 extern "C" {
 #include "control_model/model.h"
 }
@@ -32,6 +34,7 @@ namespace autolabor::pm1 {
         [[nodiscard]] unsigned char battery_percent() const;
         [[nodiscard]] physical current() const;
         [[nodiscard]] physical target() const;
+        [[nodiscard]] odometry_t<> odometry() const;
 
         struct active_sending_t {
             std::chrono::steady_clock::time_point time;

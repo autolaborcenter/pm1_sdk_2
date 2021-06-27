@@ -16,9 +16,53 @@ extern "C" {
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace autolabor::pm1 {
+    class differential_t {
+        int32_t _cache[2][2];
+
+        bool _initialized, _ready[2];
+
+    public:
+        constexpr static auto L = 0, R = 1;
+
+        void reset() {
+            _initialized = _ready[L] = _ready[R] = false;
+        }
+
+        void update() {
+            _ready[L] = _ready[R] = false;
+        }
+
+        std::optional<std::pair<int32_t, int32_t>> update(int which, int32_t value) {
+            if (which > 1) return std::nullopt;
+            const auto other = 1 - which;
+
+            _cache[which][1] = value;
+
+            if (_ready[other]) {
+                // 收齐
+                _ready[other] = false;
+                // 差分
+                std::pair<int32_t, int32_t> result{_cache[0][1] - _cache[0][0], _cache[1][1] - _cache[1][0]};
+                _cache[0][0] = _cache[0][1];
+                _cache[1][0] = _cache[1][1];
+
+                if (!_initialized)
+                    _initialized = true;
+                else
+                    return result;
+            } else
+                // 未收齐
+                _ready[which] = true;
+
+            return std::nullopt;
+        }
+    };
+
     class chassis_t::implement_t {
         using clock = std::chrono::steady_clock;
 
@@ -37,6 +81,10 @@ namespace autolabor::pm1 {
         clock::time_point _target_set, _rudder_received, _active_send;
         physical _current, _target;
         bool _alive;
+
+        std::mutex _mutex;
+        differential_t _differential;
+        odometry_t<> _odometry;
 
         template<class t>
         static uint8_t *to_stream(uint8_t *buffer, t value) {
@@ -71,6 +119,7 @@ namespace autolabor::pm1 {
         uint8_t battery_percent() const { return _battery_percent; }
         physical current() const { return _current; }
         physical target() const { return _target; }
+        odometry_t<> odometry() const { return _odometry; }
 
         active_sending_t next_to_send() {
             auto now = clock::now();
@@ -86,6 +135,10 @@ namespace autolabor::pm1 {
                            : _times_to_send % 2 == 0
                                ? 12
                                : 6;
+            if (size > 6) {
+                std::lock_guard<decltype(_mutex)> lock(_mutex);
+                _differential.update();
+            }
             return {_active_send, _bytes_to_send, size};
         }
 
@@ -97,10 +150,10 @@ namespace autolabor::pm1 {
         void close() { _alive = false; }
 
         void communicate(uint8_t *&buffer, uint8_t &size) {
-            auto release = false;
+            auto locked = false;
             auto rudder = NAN;
             auto now = clock::now();
-
+            // 解析
             auto slices = can::split(buffer, buffer + size);
             auto p = slices.begin();
             auto ptr = *p;
@@ -122,7 +175,7 @@ namespace autolabor::pm1 {
                 if (header->data.msg_type == STATE) {
 
                     _states[node.key] = *data;
-                    release = release || *data != 1;
+                    locked = locked || *data != 1;
 
                 } else if (!((header->key ^ any_tcu::current_position::rx.key) & MASK.key)) {
 
@@ -138,17 +191,27 @@ namespace autolabor::pm1 {
 
                     int32_t pulse;
                     std::reverse_copy(data, data + sizeof pulse, reinterpret_cast<uint8_t *>(&pulse));
+                    std::unique_lock<decltype(_mutex)> lock(_mutex);
+                    auto d = _differential.update(node.data.index, pulse);
+                    lock.unlock();
+                    if (d) {
+                        auto [l, r] = *d;
+                        _odometry += model.to_delta(l, r);
+                    }
 
                 } else if (!((header->key ^ any_vcu::battery_percent::rx.key) & MASK.key))
 
                     _battery_percent = *data;
             }
+            // 拷贝未解析的字节
             std::memcpy(buffer, ptr, size -= ptr - buffer);
             auto end = buffer += size;
-            if (release) {
+            // 解锁
+            if (locked) {
                 *reinterpret_cast<can::header_t *>(end) = can::pm1::every_node::unlock;
                 end = to_stream<uint8_t>(end, 0xff);
             }
+            // 控制
             if (!std::isnan(rudder)) {
                 using namespace std::chrono_literals;
                 _current.rudder = rudder;
@@ -171,6 +234,7 @@ namespace autolabor::pm1 {
                     end = to_stream<int16_t>(end, PULSES_OF(_target.rudder, default_rudder_k));
                 }
             }
+            // 传出写字节长度
             size = static_cast<uint8_t>(end - buffer);
         }
     };
@@ -179,14 +243,13 @@ namespace autolabor::pm1 {
     chassis_t::chassis_t(chassis_t &&others) noexcept : _implement(std::exchange(others._implement, nullptr)) {}
     chassis_t::~chassis_t() { delete _implement; }
 
-    void chassis_t::communicate(uint8_t *&buffer, uint8_t &size) {
-        _implement->communicate(buffer, size);
-    }
+    void chassis_t::communicate(uint8_t *&buffer, uint8_t &size) { _implement->communicate(buffer, size); }
 
     bool chassis_t::alive() const { return _implement->alive(); }
     uint8_t chassis_t::battery_percent() const { return _implement->battery_percent(); }
     physical chassis_t::current() const { return _implement->current(); }
     physical chassis_t::target() const { return _implement->target(); }
+    odometry_t<> chassis_t::odometry() const { return _implement->odometry(); }
 
     chassis_t::active_sending_t chassis_t::next_to_send() { return _implement->next_to_send(); }
     void chassis_t::set_target(physical state) { _implement->set_target(state); }

@@ -5,15 +5,19 @@
 #ifndef PM1_SDK_2_ODOMETRY_T_HPP
 #define PM1_SDK_2_ODOMETRY_T_HPP
 
-
 #include <cmath>
 
 namespace autolabor {
-    enum class odometry_type : bool { state,
-                                      delta };
+    enum class odometry_type : bool {
+        state,
+        delta
+    };
 
     template<odometry_type type = odometry_type::state, class t = float>
     struct odometry_t;
+
+    template<class t = float>
+    using odometry_delta_t = odometry_t<odometry_type::delta, t>;
 
     /** 里程计增量 */
     template<class t>
@@ -25,7 +29,7 @@ namespace autolabor {
 
             if (a < std::numeric_limits<t>::epsilon())
                 return {std::abs(l), a, l, 0, theta};
-            
+
             auto r = l / theta;
             return {std::abs(l), a, r * std::sin(theta), r * (1 - std::cos(theta)), theta};
         }
@@ -91,6 +95,5 @@ namespace autolabor {
         }
     };
 }// namespace autolabor
-
 
 #endif//PM1_SDK_2_ODOMETRY_T_HPP

@@ -5,6 +5,8 @@
 #ifndef PM1_SDK_2_CHASSIS_MODEL_HH
 #define PM1_SDK_2_CHASSIS_MODEL_HH
 
+#include "odometry_t.hpp"
+
 extern "C" {
 #include "control_model/optimization.h"
 }
@@ -24,6 +26,7 @@ namespace autolabor::pm1 {
         [[nodiscard]] physical from_wheels(const wheels &) const;
         [[nodiscard]] physical from_velocity(const velocity &) const;
         [[nodiscard]] std::chrono::milliseconds period() const;
+        [[nodiscard]] odometry_delta_t<> to_delta(int l, int r) const;
     };
 }// namespace autolabor::pm1
 
