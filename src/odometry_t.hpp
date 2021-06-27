@@ -40,8 +40,7 @@ namespace autolabor {
     struct odometry_t<odometry_type::state, t> {
         t s, a, x, y, theta;
 
-        odometry_t &operator+=(
-            const odometry_t<odometry_type::delta> &delta) {
+        odometry_t &operator+=(const odometry_t<odometry_type::delta> &delta) {
             s += delta.s;
             a += delta.a;
 
@@ -54,8 +53,7 @@ namespace autolabor {
             return *this;
         }
 
-        odometry_t &operator-=(
-            const odometry_t<odometry_type::delta> &delta) {
+        odometry_t &operator-=(const odometry_t<odometry_type::delta> &delta) {
             s -= delta.s;
             a -= delta.a;
 
@@ -68,20 +66,17 @@ namespace autolabor {
             return *this;
         }
 
-        odometry_t operator+(
-            const odometry_t<odometry_type::delta> &delta) const {
+        odometry_t operator+(const odometry_t<odometry_type::delta> &delta) const {
             auto temp = *this;
             return temp += delta;
         }
 
-        odometry_t operator-(
-            const odometry_t<odometry_type::delta> &delta) const {
+        odometry_t operator-(const odometry_t<odometry_type::delta> &delta) const {
             auto temp = *this;
             return temp -= delta;
         }
 
-        odometry_t<odometry_type::delta> operator-(
-            const odometry_t<odometry_type::state> &mark) const {
+        odometry_t<odometry_type::delta> operator-(const odometry_t<odometry_type::state> &mark) const {
             const auto sin = std::sin(-mark.theta),
                        cos = std::cos(-mark.theta),
                        dx = x - mark.x,

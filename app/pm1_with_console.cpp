@@ -51,7 +51,13 @@ int main() {
                 case 'S': {
                     std::unique_lock<decltype(mutex)> lock(mutex);
                     auto current = chassis->current();
-                    std::cout << "S " << current.speed << ' ' << current.rudder << std::endl;
+                    auto odometry = chassis->odometry();
+                    std::cout << "S "
+                              << current.speed << ' '
+                              << current.rudder << ' '
+                              << odometry.x << ' '
+                              << odometry.y << ' '
+                              << odometry.theta << std::endl;
                 } break;
             }
         {
