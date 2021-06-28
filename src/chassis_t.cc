@@ -22,9 +22,9 @@ extern "C" {
 
 namespace autolabor::pm1 {
     class differential_t {
-        int32_t _cache[2][2];
+        int32_t _cache[2][2]{};
 
-        bool _initialized, _ready[2];
+        bool _initialized = false, _ready[2]{};
 
     public:
         constexpr static auto L = 0, R = 1;
@@ -104,6 +104,7 @@ namespace autolabor::pm1 {
               _times_to_send(0),
               _current(physical_zero),
               _target(physical_zero),
+              _odometry{},
               _alive(true) {
 #define SET_HEADER(N) *reinterpret_cast<can::header_t *>(_bytes_to_send + (N)) = can::pm1
             SET_HEADER(0)::every_tcu::current_position::tx;

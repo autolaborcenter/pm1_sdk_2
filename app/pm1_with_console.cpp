@@ -44,15 +44,12 @@ int main() {
                     }
 
                 } break;
-                case 'B': {
-                    std::unique_lock<decltype(mutex)> lock(mutex);
-                    std::cout << "B " << +chassis->battery_percent() << std::endl;
-                } break;
                 case 'S': {
                     std::unique_lock<decltype(mutex)> lock(mutex);
                     auto current = chassis->current();
                     auto odometry = chassis->odometry();
                     std::cout << "S "
+                              << +chassis->battery_percent() << ' '
                               << current.speed << ' '
                               << current.rudder << ' '
                               << odometry.x << ' '
