@@ -27,11 +27,6 @@ int main(int argc, char *argv[]) {
     std::condition_variable signal;
 
     auto chassis = scan_chassis(mutex, signal);
-    {
-        std::unique_lock<decltype(mutex)> lock(mutex);
-        signal.wait(lock, [&chassis] { return chassis.size() <= 1; });
-        if (!chassis.size()) return 1;
-    }
 
     using clock = std::chrono::steady_clock;
     auto control_timeout = clock::now();
@@ -52,16 +47,9 @@ int main(int argc, char *argv[]) {
                 std::this_thread::sleep_until(control_timeout);
                 continue;
             }
-            std::unique_lock<decltype(mutex)> lock(mutex);
-            if (chassis.size() == 1) {
-                auto rudder = chassis.begin()->second->current().rudder;
-                lock.unlock();
-                servo(1475 - rudder / pi_f * (1475 - 501) * 2);
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            } else {
-                lock.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            }
+            auto rudder = chassis.lock()->current().rudder;
+            servo(1475 - rudder / pi_f * (1475 - 501) * 2);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }).detach();
 
@@ -77,28 +65,21 @@ int main(int argc, char *argv[]) {
                 auto temp = reinterpret_cast<physical *>(buffer);
                 std::cout << temp->speed << " | " << temp->rudder << std::endl;
 
-                std::unique_lock<std::mutex> lock(mutex);
-                if (chassis.size() == 1) {
-                    chassis.begin()->second->set_target(*temp);
-                    lock.unlock();
+                chassis.lock()->set_target(*temp);
 
-                    control_timeout = clock::now() + std::chrono::milliseconds(2000);
-                    auto dir = temp->speed < 0
-                                   ? 1475 + temp->rudder / pi_f * 500
-                               : temp->speed > 0
-                                   ? 1475 - temp->rudder / pi_f * 500
-                                   : 1475 - temp->rudder / pi_f * (1475 - 501) * 2;
-                    servo(dir);
-                } else {
-                    lock.unlock();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                }
+                control_timeout = clock::now() + std::chrono::milliseconds(2000);
+                auto dir = temp->speed < 0
+                               ? 1475 + temp->rudder / pi_f * 500
+                           : temp->speed > 0
+                               ? 1475 - temp->rudder / pi_f * 500
+                               : 1475 - temp->rudder / pi_f * (1475 - 501) * 2;
+                servo(dir);
             }
         }
     }).detach();
 
     std::unique_lock<decltype(mutex)> lock(mutex);
-    signal.wait(lock, [&chassis] { return chassis.empty(); });
+    signal.wait(lock, [&chassis] { return !chassis.lock(); });
 
     return 0;
 }
