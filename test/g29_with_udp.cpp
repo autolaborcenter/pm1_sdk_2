@@ -14,8 +14,11 @@ int main() {
     sockaddr_in remote{.sin_family = AF_INET, .sin_port = 33333};
     inet_pton(AF_INET, "6.0.0.3", &remote.sin_addr);
 
+    auto steering = steering_t::scan();
+    if (!steering) return 0;
+
     physical last, target;
-    while (wait_event(target.speed, target.rudder, 50)) {
+    while (steering.wait_event(target.speed, target.rudder, 50)) {
         if (!target.speed && target.speed == last.speed && target.rudder == last.rudder)
             continue;
         std::cout << target.speed << " | " << target.rudder << std::endl;

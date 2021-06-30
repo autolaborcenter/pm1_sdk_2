@@ -1,7 +1,5 @@
 #include "steering_t.hh"
 
-#include "src/odometry_t.hpp"
-
 extern "C" {
 #include "src/control_model/model.h"
 #include "src/control_model/optimization.h"
@@ -18,9 +16,8 @@ extern "C" {
 #include <fstream>
 
 #include <algorithm>
-#include <atomic>
-#include <memory>
 #include <mutex>
+#include <optional>
 
 /** int16_t to float */
 class g29_value_t {
@@ -74,9 +71,7 @@ public:
     }
 };
 
-class steering_t::context_t {
-    std::string _name_event, _name_js;
-
+class steering_t::implement_t {
     int _event, _js, _epoll;
 
     using clock = std::chrono::steady_clock;
@@ -87,7 +82,7 @@ class steering_t::context_t {
 
     void update_autocenter(uint16_t value) const {
         input_event msg{.type = EV_FF, .code = FF_AUTOCENTER, .value = value};
-        auto _ = write(_event, &msg, sizeof(input_event));
+        std::ignore = write(_event, &msg, sizeof(input_event));
     }
 
     void update_ff(physical p, bool actual) {
@@ -100,48 +95,33 @@ class steering_t::context_t {
     }
 
 public:
-    context_t(const char *event, const char *js)
-        : _name_event(event),
-          _name_js(js),
-          _event(0),
-          _js(0),
+    implement_t(const char *name_event, const char *name_js)
+        : _event(-1),
+          _js(-1),
           _epoll(epoll_create1(0)),
           _value{},
-          _state_updated(decltype(_state_updated)::min()) {}
-
-    context_t(context_t const &) = delete;
-    context_t(context_t &&) noexcept = delete;
-    context_t &operator=(context_t const &) = delete;
-    context_t &operator=(context_t &&) = delete;
-
-    ~context_t() {
-        _value = {};
-        ::close(_epoll);
-        ::close(_event);
-        ::close(_js);
-    }
-
-    bool open() {
-        if (_event)
-            return true;
+          _state_updated(decltype(_state_updated)::min()) {
+        if (!name_event || !name_js) return;
 
         std::filesystem::path js_path("/dev/input/");
-        auto js = ::open(js_path.append(_name_js).c_str(), O_RDONLY);
-        if (js <= 0)
-            return false;
-
         std::filesystem::path event_path("/dev/input/");
-        auto event = ::open(event_path.append(_name_event).c_str(), O_RDWR);
-        if (event <= 0)
-            return false;
-
-        uint8_t ff_bits[FF_MAX / 8 + 1]{};
-        if (ioctl(event, EVIOCGBIT(EV_FF, sizeof(ff_bits)), ff_bits) < 0)
-            return false;
+        auto js = open(js_path.append(name_js).c_str(), O_RDONLY);
+        auto event = open(event_path.append(name_event).c_str(), O_RDWR);
+        if (event < 0) {
+            ::close(js);
+            ::close(event);
+            return;
+        }
 
 #define testBit(bit, array) ((array[bit / 8] >> bit % 8) & 1)
-        if (!testBit(FF_CONSTANT, ff_bits) || !testBit(FF_AUTOCENTER, ff_bits))
-            return false;
+        uint8_t ff_bits[FF_MAX / 8 + 1]{};
+        if (ioctl(event, EVIOCGBIT(EV_FF, sizeof(ff_bits)), ff_bits) < 0 ||
+            !testBit(FF_CONSTANT, ff_bits) ||
+            !testBit(FF_AUTOCENTER, ff_bits)) {
+            ::close(js);
+            ::close(event);
+            return;
+        }
 #undef testBit
 
         _event = event;
@@ -149,17 +129,23 @@ public:
         epoll_event epoll{.events = EPOLLIN, .data{.u32 = static_cast<uint32_t>(js)}};
         epoll_ctl(_epoll, EPOLL_CTL_ADD, js, &epoll);
         update_autocenter(0x8000);
-
-        return true;
     }
 
+    ~implement_t() {
+        _value = {};
+        ::close(_epoll);
+        ::close(_event);
+        ::close(_js);
+    }
+
+    operator bool() const { return _event >= 0; }
+
     void close() {
-        if (!_event)
-            return;
         _value = {};
         epoll_ctl(_epoll, EPOLL_CTL_DEL, _js, nullptr);
-        ::close(std::exchange(_event, 0));
-        ::close(std::exchange(_js, 0));
+        ::close(std::exchange(_event, -1));
+        ::close(std::exchange(_js, -1));
+        ::close(std::exchange(_epoll, -1));
     }
 
     bool wait_event(float &speed, float &rudder, int timeout) {
@@ -226,92 +212,18 @@ public:
     }
 };
 
-steering_t::steering_t() : _context(nullptr) {}
-steering_t::steering_t(const char *event, const char *js) : _context(new context_t(event, js)) {}
-steering_t::steering_t(steering_t &&others) noexcept : _context(std::exchange(others._context, nullptr)) {}
+steering_t::steering_t(const char *event, const char *js) : _implement(new implement_t(event, js)) {}
+steering_t::steering_t(steering_t &&others) noexcept : _implement(std::exchange(others._implement, nullptr)) {}
+steering_t::~steering_t() { delete _implement; }
 
-steering_t &steering_t::operator=(steering_t &&others) noexcept {
-    delete std::exchange(_context, std::exchange(others._context, nullptr));
-    return *this;
-}
-
-steering_t::~steering_t() {
-    delete _context;
-}
-
-bool steering_t::open() {
-    return _context ? _context->open() : false;
-}
-
-void steering_t::close() {
-    if (_context)
-        _context->close();
-}
+steering_t::operator bool() const { return _implement->operator bool(); }
+void steering_t::close() { _implement->close(); }
 
 bool steering_t::wait_event(float &speed, float &rudder, int timeout) {
-    return _context ? _context->wait_event(speed, rudder, timeout) : false;
+    return _implement->wait_event(speed, rudder, timeout);
 }
 
-void steering_t::set_state(float speed, float rudder) {
-    if (_context)
-        _context;
-}
-
-std::shared_ptr<steering_t> steering(bool);
-std::atomic<physical> _current({0, 0}), _target(physical_zero);
-physical _state0{}, _state1{.2f, 0};
-autolabor::odometry_t _pose;
-
-bool wait_event(float &speed, float &rudder, int timeout) {
-    auto _steering = steering(true);
-    if (_steering && _steering->wait_event(speed, rudder, timeout)) {
-        _target = {speed, rudder};
-        return true;
-    } else {
-        _target = physical_zero;
-        return false;
-    }
-}
-
-void set_state(float &speed, float &rudder) {
-    _current = {speed, rudder};
-    auto _steering = steering(false);
-    if (_steering) {
-        _steering->set_state(speed, rudder);
-        auto target = _target.load();
-        speed = target.speed;
-        rudder = target.rudder;
-    } else {
-        _target = physical_zero;
-        speed = 0;
-        rudder = NAN;
-    }
-}
-
-void freeze_state() {
-    _state0 = _current;
-    _state1.rudder = _target.load().rudder;
-    if (std::isnan(_state1.rudder))
-        _state1.rudder = _state0.rudder;
-    _pose = {};
-}
-
-void next_pose(float &x, float &y, float &theta) {
-    _state0 = optimize(_state1, _state0, &default_optimizer, &default_config);
-    if (_state1.rudder > _state0.rudder)
-        _state0.rudder = std::min({_state0.rudder + default_optimizer.period, _state1.rudder, +pi_f / 2});
-    else
-        _state0.rudder = std::max({_state0.rudder - default_optimizer.period, _state1.rudder, -pi_f / 2});
-
-    using delta_t = autolabor::odometry_t<autolabor::odometry_type::delta, float>;
-    auto velocity = physical_to_velocity(_state0, &default_config);
-    _pose += delta_t::from_velocity(velocity.v, velocity.w);
-    x = _pose.x;
-    y = _pose.y;
-    theta = _pose.theta;
-}
-
-std::shared_ptr<steering_t> steering(bool try_) {
+steering_t steering_t::scan() {
     constexpr static auto
         N_PREFIX = "N: Name=",
         H_PREFIX = "H: Handlers=",
@@ -320,21 +232,6 @@ std::shared_ptr<steering_t> steering(bool try_) {
         N_PREFIX_LEN = std::strlen(N_PREFIX),
         H_PREFIX_LEN = std::strlen(H_PREFIX),
         FF_PREFIX_LEN = std::strlen(FF_PREFIX);
-
-    static std::shared_ptr<steering_t> _steering;
-    static std::string name;
-    static char line[512];
-    static std::recursive_mutex looking_for;
-
-    std::lock_guard<decltype(looking_for)> lock(looking_for);
-    if (_steering && _steering->open())
-        return _steering;
-
-    if (!try_)
-        return nullptr;
-
-    if (_steering && _steering->open())
-        return _steering;
 
     // I: Bus=0003 Vendor=046d Product=c24f Version=0111
     // N: Name="Logitech G29 Driving Force Racing Wheel"
@@ -350,33 +247,28 @@ std::shared_ptr<steering_t> steering(bool try_) {
     // B: FF=300040000 0
 
     std::ifstream file("/proc/bus/input/devices");
-    std::string event, js;
+    std::string line, name, event, js;
 
-    while (file.getline(line, sizeof line))
-        if (std::strlen(line) < 3) {
+    while (std::getline(file, line))
+        if (line.size() < 3) {
             name.clear();
             event.clear();
             js.clear();
-        } else if (std::strncmp(line, N_PREFIX, N_PREFIX_LEN) == 0)
-            name = line + N_PREFIX_LEN;
-        else if (std::strncmp(line, H_PREFIX, H_PREFIX_LEN) == 0) {
+        } else if (line.starts_with(N_PREFIX))
+            name = line.substr(N_PREFIX_LEN);
+        else if (line.starts_with(H_PREFIX)) {
             std::string temp;
-            std::stringstream stream;
-            stream << line + H_PREFIX_LEN;
+            std::stringstream stream(line.substr(H_PREFIX_LEN));
             while (stream >> temp)
                 if (temp.starts_with("event"))
                     event = std::move(temp);
                 else if (temp.starts_with("js"))
                     js = std::move(temp);
-        } else if (std::strncmp(line, FF_PREFIX, FF_PREFIX_LEN) == 0 &&
-                   !name.empty() &&
-                   !event.empty() &&
-                   !js.empty()) {
-            steering_t temp(event.c_str(), js.c_str());
-            if (temp.open())
-                return _steering = std::make_shared<steering_t>(std::move(temp));
+        } else if (line.starts_with(FF_PREFIX) && !name.empty() && !event.empty() && !js.empty()) {
+            steering_t device(event.c_str(), js.c_str());
+            if (device) return device;
             name.clear();
         }
 
-    return _steering = nullptr;
+    return steering_t(nullptr, nullptr);
 }

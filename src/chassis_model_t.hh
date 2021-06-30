@@ -27,6 +27,7 @@ namespace autolabor::pm1 {
         [[nodiscard]] physical from_velocity(const velocity &) const;
         [[nodiscard]] std::chrono::milliseconds period() const;
         [[nodiscard]] odometry_delta_t<> to_delta(int l, int r) const;
+        [[nodiscard]] odometry_delta_t<> to_delta(physical) const;
     };
 }// namespace autolabor::pm1
 

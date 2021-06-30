@@ -20,17 +20,22 @@ add_library(control_model
         src/control_model/optimization.h
         src/control_model/optimization.c)
 
+add_library(chassis_model
+        src/chassis_model_t.hh
+        src/chassis_model_t.cc
+
+        src/predictor_t.hh
+        src/predictor_t.cc)
+target_link_libraries(chassis_model control_model)
+
 add_library(pm1
         src/autocan/protocol.h
         src/autocan/pm1.h
         src/autocan/parse.cpp
 
         src/chassis_t.hh
-        src/chassis_t.cc
-
-        src/chassis_model_t.hh
-        src/chassis_model_t.cc)
-target_link_libraries(pm1 control_model)
+        src/chassis_t.cc)
+target_link_libraries(pm1 chassis_model)
 
 find_package(Threads REQUIRED)
 
@@ -39,7 +44,7 @@ add_library(pm1_linux
         app/pm1_driver_common_linux.cpp
         app/serial_linux.h
         app/serial_linux.cpp)
-target_link_libraries(pm1_linux pm1 ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(pm1_linux pm1 pthread)
 
 # 架构相关编译
 
@@ -59,10 +64,10 @@ target_link_libraries(pm1_console_unix pm1_linux)
 # 罗技 g29
 
 add_library(g29 src/g29/steering_t.hh src/g29/steering_t.cc)
-target_link_libraries(g29 control_model)
+target_link_libraries(g29 chassis_model)
 
 add_executable(g29_console_unix app/g29_console.cpp)
-target_link_libraries(g29_console_unix g29)
+target_link_libraries(g29_console_unix g29 pthread)
 
 # test
 
@@ -71,9 +76,6 @@ target_link_libraries(pm1_udp pm1_linux)
 
 add_executable(g29_udp test/g29_with_udp.cpp)
 target_link_libraries(g29_udp g29)
-
-add_executable(pm1_with_g29 test/pm1_with_g29.cpp)
-target_link_libraries(pm1_with_g29 pm1_linux g29)
 
 add_executable(servo_test test/servo_test.cpp
         app/serial_linux.h

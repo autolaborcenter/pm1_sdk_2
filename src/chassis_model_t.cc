@@ -38,16 +38,14 @@ namespace autolabor::pm1 {
                    r = RAD_OF(r_, default_wheel_k) * _chassis_config.right_radius,
                    s = (r + l) / 2,
                    a = (r - l) / _chassis_config.width;
-
-        float x, y;
-        if (std::abs(a) < std::numeric_limits<float>::epsilon()) {
-            x = s;
-            y = 0;
-        } else {
-            auto _r = s / a;
-            x = _r * std::sin(a);
-            y = _r * (1 - std::cos(a));
-        }
-        return {std::abs(s), std::abs(a), x, y, a};
+        return odometry_delta_t<>::from_velocity(s, a);
     }
+
+    odometry_delta_t<> chassis_model_t::to_delta(physical p) const {
+        const auto velocity = to_velocity(p);
+        return odometry_delta_t<>::from_velocity(
+            velocity.v * _optimizer.period,
+            velocity.w * _optimizer.period);
+    }
+
 }// namespace autolabor::pm1

@@ -24,14 +24,14 @@ namespace autolabor {
     struct odometry_t<odometry_type::delta, t> {
         t s, a, x, y, theta;
 
-        static odometry_t from_velocity(t l, t theta) {
+        static odometry_t from_velocity(t distance, t theta) {
             auto a = std::abs(theta);
 
             if (a < std::numeric_limits<t>::epsilon())
-                return {std::abs(l), a, l, 0, theta};
+                return {std::abs(distance), a, distance, 0, theta};
 
-            auto r = l / theta;
-            return {std::abs(l), a, r * std::sin(theta), r * (1 - std::cos(theta)), theta};
+            auto r = distance / theta;
+            return {std::abs(distance), a, r * std::sin(theta), r * (1 - std::cos(theta)), theta};
         }
     };
 
