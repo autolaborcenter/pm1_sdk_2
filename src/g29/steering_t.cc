@@ -74,9 +74,6 @@ public:
 class steering_t::implement_t {
     int _event, _js, _epoll;
 
-    using clock = std::chrono::steady_clock;
-    clock::time_point _state_updated;
-
     g29_value_t _value;
     chassis_config_t _chassis = default_config;
 
@@ -85,12 +82,7 @@ class steering_t::implement_t {
         std::ignore = write(_event, &msg, sizeof(input_event));
     }
 
-    void update_ff(physical p, bool actual) {
-        if (actual)
-            _state_updated = clock::now();
-        else if (_state_updated != clock::time_point::min() &&
-                 clock::now() > _state_updated + std::chrono::seconds(1))
-            p = physical_zero;
+    void update_ff(physical p) {
         update_autocenter(0x2800 + 0x4000 * std::abs(physical_to_velocity(p, &_chassis).v));
     }
 
@@ -99,8 +91,7 @@ public:
         : _event(-1),
           _js(-1),
           _epoll(epoll_create1(0)),
-          _value{},
-          _state_updated(decltype(_state_updated)::min()) {
+          _value{} {
         if (!name_event || !name_js) return;
 
         std::filesystem::path js_path("/dev/input/");
@@ -170,14 +161,14 @@ public:
                             case 19:
                                 if (_value.level_up()) {
                                     _value.to_float(speed, rudder);
-                                    update_ff({speed, rudder}, false);
+                                    update_ff({speed, rudder});
                                 }
                                 return true;
                             case 5:
                             case 20:
                                 if (_value.level_down()) {
                                     _value.to_float(speed, rudder);
-                                    update_ff({speed, rudder}, false);
+                                    update_ff({speed, rudder});
                                 }
                                 return true;
                         }
@@ -187,28 +178,24 @@ public:
                         case 0:
                             _value.set_direction(event.value);
                             _value.to_float(speed, rudder);
-                            update_ff({speed, rudder}, false);
+                            update_ff({speed, rudder});
                             return true;
                         case 1:
                             if (_value.sternway(event.value)) {
                                 _value.to_float(speed, rudder);
-                                update_ff({speed, rudder}, false);
+                                update_ff({speed, rudder});
                                 return true;
                             }
                             break;
                         case 2:
                             _value.set_power(event.value);
                             _value.to_float(speed, rudder);
-                            update_ff({speed, rudder}, false);
+                            update_ff({speed, rudder});
                             return true;
                     }
                     break;
             }
         }
-    }
-
-    void set_state(float speed, float rudder) {
-        update_ff({speed, rudder}, true);
     }
 };
 
