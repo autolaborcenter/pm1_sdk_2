@@ -33,12 +33,21 @@ int main() {
             predictor.set_current(state);
             predictor.freeze();
 
-            autolabor::odometry_t<> pose{};
+            autolabor::odometry_t<> pose{}, delta{};
             builder.str("");
             builder.clear();
             builder << "P 0,0,0";
-            for (auto i = 0; i < 500 && predictor(pose) && std::abs(pose.theta) < pi_f / 2; ++i)
-                if (i % 5 == 0) builder << ' ' << pose.x << ',' << pose.y << ',' << pose.theta;
+            for (auto i = 0;
+                 i < 500 &&
+                 std::abs(pose.theta) < pi_f * 2 &&
+                 std::hypotf(pose.x, pose.y) < 3 &&
+                 predictor(delta);
+                 ++i)
+                if (std::abs(delta.s) > .05f) {
+                    pose += delta.as_delta();
+                    delta = {};
+                    builder << ' ' << pose.x << ',' << pose.y << ',' << pose.theta;
+                }
 
             std::lock_guard<decltype(mutex)> lock(mutex);
             std::cout << builder.str() << std::endl;
