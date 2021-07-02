@@ -19,7 +19,7 @@ int main() {
             predictor.set_target({speed, rudder});
 
             std::stringstream builder;
-            builder << speed << ' ' << rudder;
+            builder << "T " << speed << ' ' << rudder;
             std::lock_guard<decltype(mutex)> lock(mutex);
             std::cout << builder.str() << std::endl;
         }
@@ -36,7 +36,7 @@ int main() {
             autolabor::odometry_t<> pose{};
             builder.str("");
             builder.clear();
-            builder << "0,0,0";
+            builder << "P 0,0,0";
             for (auto i = 0; i < 500 && predictor(pose) && std::abs(pose.theta) < pi_f / 2; ++i)
                 if (i % 5 == 0) builder << ' ' << pose.x << ',' << pose.y << ',' << pose.theta;
 
