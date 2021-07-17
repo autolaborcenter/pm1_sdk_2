@@ -29,7 +29,8 @@ class g29_value_t {
         _max_level = 5;
 
 public:
-    void to_float(float &speed, float &rudder) const {
+    void get(uint8_t &level, float &speed, float &rudder) const {
+        level = _level;
         speed = (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f;
         rudder = std::copysignf(std::pow(std::abs(_direction) / 32768.0f, 2.0f), _direction) * pi_f / 2;
     }
@@ -139,13 +140,13 @@ public:
         ::close(std::exchange(_epoll, -1));
     }
 
-    bool wait_event(float &speed, float &rudder, int timeout) {
+    bool wait_event(uint8_t &level, float &speed, float &rudder, int timeout) {
         while (true) {
             js_event event{};
             epoll_event epoll{};
             auto n = epoll_wait(_epoll, &epoll, 1, timeout);
             if (!n) {
-                _value.to_float(speed, rudder);
+                _value.get(level, speed, rudder);
                 return true;
             }
             if (read(epoll.data.u32, &event, sizeof(js_event)) < 0) {
@@ -160,14 +161,14 @@ public:
                             case 4:
                             case 19:
                                 if (_value.level_up()) {
-                                    _value.to_float(speed, rudder);
+                                    _value.get(level, speed, rudder);
                                     update_ff({speed, rudder});
                                 }
                                 return true;
                             case 5:
                             case 20:
                                 if (_value.level_down()) {
-                                    _value.to_float(speed, rudder);
+                                    _value.get(level, speed, rudder);
                                     update_ff({speed, rudder});
                                 }
                                 return true;
@@ -177,19 +178,19 @@ public:
                     switch (event.number) {
                         case 0:
                             _value.set_direction(event.value);
-                            _value.to_float(speed, rudder);
+                            _value.get(level, speed, rudder);
                             update_ff({speed, rudder});
                             return true;
                         case 1:
                             if (_value.sternway(event.value)) {
-                                _value.to_float(speed, rudder);
+                                _value.get(level, speed, rudder);
                                 update_ff({speed, rudder});
                                 return true;
                             }
                             break;
                         case 2:
                             _value.set_power(event.value);
-                            _value.to_float(speed, rudder);
+                            _value.get(level, speed, rudder);
                             update_ff({speed, rudder});
                             return true;
                     }
@@ -206,8 +207,8 @@ steering_t::~steering_t() { delete _implement; }
 steering_t::operator bool() const { return _implement->operator bool(); }
 void steering_t::close() { _implement->close(); }
 
-bool steering_t::wait_event(float &speed, float &rudder, int timeout) {
-    return _implement->wait_event(speed, rudder, timeout);
+bool steering_t::wait_event(uint8_t &level, float &speed, float &rudder, int timeout) {
+    return _implement->wait_event(level, speed, rudder, timeout);
 }
 
 steering_t steering_t::scan() {

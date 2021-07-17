@@ -13,18 +13,21 @@ int main() {
 
     autolabor::pm1::predictor_t predictor;
 
+    // 反馈事件
     std::thread([&] {
+        uint8_t level;
         float speed, rudder;
-        while (steering.wait_event(speed, rudder, -1)) {
+        while (steering.wait_event(level, speed, rudder, -1)) {
             predictor.set_target({speed, rudder});
 
             std::stringstream builder;
-            builder << "T " << speed << ' ' << rudder;
+            builder << "T " << +level << ' ' << speed << ' ' << rudder;
             std::lock_guard<decltype(mutex)> lock(mutex);
             std::cout << builder.str() << std::endl;
         }
     }).detach();
 
+    // 预测轨迹
     std::string line;
     while (std::getline(std::cin, line)) {
         std::stringstream builder(line);

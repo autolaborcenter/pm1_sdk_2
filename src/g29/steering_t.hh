@@ -1,6 +1,8 @@
 #ifndef STEERING_T_HH
 #define STEERING_T_HH
 
+#include <cstdint>
+
 class steering_t {
     class implement_t;
     implement_t *_implement;
@@ -16,7 +18,7 @@ public:
     operator bool() const;
     void close();
 
-    bool wait_event(float &, float &, int);
+    bool wait_event(uint8_t &, float &, float &, int);
 };
 
 #endif// STEERING_T_HH

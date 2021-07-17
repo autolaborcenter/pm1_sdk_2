@@ -17,8 +17,9 @@ int main() {
     auto steering = steering_t::scan();
     if (!steering) return 0;
 
+    uint8_t level;
     physical last, target;
-    while (steering.wait_event(target.speed, target.rudder, 50)) {
+    while (steering.wait_event(level, target.speed, target.rudder, 50)) {
         if (!target.speed && target.speed == last.speed && target.rudder == last.rudder)
             continue;
         std::cout << target.speed << " | " << target.rudder << std::endl;
