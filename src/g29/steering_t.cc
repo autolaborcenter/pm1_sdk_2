@@ -17,7 +17,6 @@ extern "C" {
 
 #include <algorithm>
 #include <mutex>
-#include <optional>
 
 /** int16_t to float */
 class g29_value_t {
@@ -59,7 +58,11 @@ public:
         return false;
     }
 
-    bool sternway(int16_t value) {
+    void reverse() {
+        _level = _level ? 0 : 1;
+    }
+
+    bool sternway(bool value) {
         if (!_level && value > 16384) {
             _level = 1;
             return true;
@@ -84,7 +87,7 @@ class steering_t::implement_t {
     }
 
     void update_ff(physical p) {
-        update_autocenter(0x2800 + 0x4000 * std::abs(physical_to_velocity(p, &_chassis).v));
+        // update_autocenter(0x2800 + 0x4000 * std::abs(physical_to_velocity(p, &_chassis).v));
     }
 
 public:
@@ -158,6 +161,10 @@ public:
                 case 1:
                     if (!event.value)
                         switch (event.number) {
+                            case 3:
+                                _value.reverse();
+                                _value.get(level, speed, rudder);
+                                return true;
                             case 4:
                             case 19:
                                 if (_value.level_up()) {
@@ -181,13 +188,13 @@ public:
                             _value.get(level, speed, rudder);
                             update_ff({speed, rudder});
                             return true;
-                        case 1:
-                            if (_value.sternway(event.value)) {
-                                _value.get(level, speed, rudder);
-                                update_ff({speed, rudder});
-                                return true;
-                            }
-                            break;
+                        // case 1:
+                        //     if (_value.sternway(event.value)) {
+                        //         _value.get(level, speed, rudder);
+                        //         update_ff({speed, rudder});
+                        //         return true;
+                        //     }
+                        //     break;
                         case 2:
                             _value.set_power(event.value);
                             _value.get(level, speed, rudder);
