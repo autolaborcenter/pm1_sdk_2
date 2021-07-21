@@ -1,44 +1,46 @@
 #include "src/g29/steering_t.hh"
 #include "src/predictor_t.hh"
 
+#include <condition_variable>
 #include <iostream>
-#include <mutex>
 #include <sstream>
 #include <thread>
 
 int main() {
-    std::mutex mutex;
     auto steering = steering_t::scan();
     if (!steering) return 0;
 
     autolabor::pm1::predictor_t predictor;
+    std::mutex mutex_cout, mutex_prodict;
+    std::condition_variable signal;
 
     // 反馈事件
     std::thread([&] {
         uint8_t level;
         float speed, rudder;
+        auto stop = true;
         while (steering.wait_event(level, speed, rudder, -1)) {
             predictor.set_target({speed, rudder});
+            auto now = -.01 < speed && speed < .01;
+            if (std::exchange(stop, now) && !now) signal.notify_one();
 
             std::stringstream builder;
             builder << "T " << +level << ' ' << speed << ' ' << rudder;
-            std::lock_guard<decltype(mutex)> lock(mutex);
+            std::lock_guard<decltype(mutex_cout)> lock(mutex_cout);
             std::cout << builder.str() << std::endl;
         }
     }).detach();
 
-    // 预测轨迹
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        std::stringstream builder(line);
-        physical state;
-        if (builder >> state.speed >> state.rudder) {
-            predictor.set_current(state);
+    // 输出预测轨迹
+    std::thread([&] {
+        while (true) {
+            std::unique_lock<decltype(mutex_prodict)> lock(mutex_prodict);
+            signal.wait(lock);
+
             predictor.freeze();
 
+            std::stringstream builder;
             autolabor::odometry_t<> pose{}, delta{};
-            builder.str("");
-            builder.clear();
             builder << "P 0,0,0";
             for (auto i = 0;
                  i < 500 &&
@@ -52,8 +54,19 @@ int main() {
                     builder << ' ' << pose.x << ',' << pose.y << ',' << pose.theta;
                 }
 
-            std::lock_guard<decltype(mutex)> lock(mutex);
+            std::lock_guard<decltype(mutex_cout)> lock(mutex_cout);
             std::cout << builder.str() << std::endl;
+        }
+    }).detach();
+
+    // 输入机器人状态
+    std::string line;
+    physical state;
+    while (std::getline(std::cin, line)) {
+        std::stringstream builder(line);
+        if (builder >> state.speed >> state.rudder) {
+            predictor.set_current(state);
+            signal.notify_one();
         }
     }
 
