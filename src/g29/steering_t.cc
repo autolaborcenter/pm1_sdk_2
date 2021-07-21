@@ -123,7 +123,7 @@ public:
         _js = js;
         epoll_event epoll{.events = EPOLLIN, .data{.u32 = static_cast<uint32_t>(js)}};
         epoll_ctl(_epoll, EPOLL_CTL_ADD, js, &epoll);
-        update_autocenter(0x8000);
+        update_autocenter(0x6000);
     }
 
     ~implement_t() {
