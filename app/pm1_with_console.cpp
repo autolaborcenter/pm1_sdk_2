@@ -64,7 +64,7 @@ int main() {
                         // 路径 := 间隔 0.1s 的 15 个点
                         // 0.1s x 15 = 1.5s > 1.45s = 1.25s + 200ms
                         // [P]ath
-                        std::cout << 'P';
+                        std::cout << "P " << target.speed << '|' << target.rudder;
                         autolabor::odometry_t<> pose{};
                         for (auto i = 0; i < 15; ++i) {
                             for (auto j = 0; j < 5; ++j)
