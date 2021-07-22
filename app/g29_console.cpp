@@ -34,9 +34,10 @@ int main() {
     // 输出预测轨迹
     std::thread([&] {
         while (true) {
-            std::unique_lock<decltype(mutex_prodict)> lock(mutex_prodict);
-            signal.wait(lock);
-
+            {
+                std::unique_lock<decltype(mutex_prodict)> lock(mutex_prodict);
+                signal.wait(lock);
+            }
             predictor.freeze();
 
             std::stringstream builder;
@@ -53,9 +54,10 @@ int main() {
                     delta = {};
                     builder << ' ' << pose.x << ',' << pose.y << ',' << pose.theta;
                 }
-
-            std::lock_guard<decltype(mutex_cout)> lock(mutex_cout);
-            std::cout << builder.str() << std::endl;
+            {
+                std::lock_guard<decltype(mutex_cout)> lock(mutex_cout);
+                std::cout << builder.str() << std::endl;
+            }
         }
     }).detach();
 
