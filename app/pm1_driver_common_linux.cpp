@@ -4,6 +4,7 @@
 
 #include <unistd.h>// close
 
+#include <iostream>
 #include <thread>
 
 std::weak_ptr<autolabor::pm1::chassis_t>
@@ -32,7 +33,12 @@ scan_chassis(std::mutex &mutex, std::condition_variable &signal) {
             uint8_t size = 0;
             do {
                 auto n = read(fd, buffer + size, sizeof(buffer) - size);
-                if (n <= 0) break;
+                if (n == 0)
+                    std::cerr << "serial timeout!" << std::endl;
+                else if (n < 0) {
+                    std::cerr << "chassis closed by reader[" << n << "]!" << std::endl;
+                    break;
+                }
                 auto buffer_ = buffer;
                 auto size_ = static_cast<uint8_t>(size + n);
                 chassis->communicate(buffer_, size_);
@@ -48,7 +54,10 @@ scan_chassis(std::mutex &mutex, std::condition_variable &signal) {
             for (uint64_t i = 0; chassis->alive(); ++i) {
                 auto meta = chassis->next_to_send();
                 std::this_thread::sleep_until(meta.time);
-                if (write(fd, meta.msg, meta.size) <= 0) break;
+                if (write(fd, meta.msg, meta.size) <= 0) {
+                    std::cerr << "chassis closed by writer!" << std::endl;
+                    break;
+                }
             }
             chassis->close();
             signal.notify_all();
@@ -58,6 +67,5 @@ scan_chassis(std::mutex &mutex, std::condition_variable &signal) {
     std::unique_lock<std::mutex> lock(mutex);
     signal.wait(lock, [&candidates] { return candidates.size() <= 1; });
     if (candidates.empty()) return {};
-    // std::cout << "N " << candidates.begin()->first << std::endl;
     return candidates.begin()->second;
 }

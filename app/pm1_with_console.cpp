@@ -88,6 +88,7 @@ int main() {
                     }
                 } break;
             }
+        std::cerr << "cin closed!" << std::endl;
         {
             std::unique_lock<std::mutex> lock(mutex);
             chassis.lock()->close();
@@ -97,6 +98,7 @@ int main() {
 
     std::unique_lock<decltype(mutex)> lock(mutex);
     signal.wait(lock, [&chassis] { return !chassis.lock(); });
+    std::cerr << "chassis closed!" << std::endl;
 
     return 0;
 }
