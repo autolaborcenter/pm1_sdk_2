@@ -60,16 +60,15 @@ int main() {
                         // 最大速度 1m/s，最大加速度 0.8m/s
                         // 减速时间 1.25s
                         // 维持超时 200ms
-                        // 5(1 + 15) = 75
-                        // 路径 := 间隔 0.1s 的 15 个点
-                        // 0.1s x 15 = 1.5s > 1.45s = 1.25s + 200ms
+                        // 路径 := 间隔 0.1s 的 20 个点
+                        // 0.1s x 20 = 2s > 1.95s = 1.25s + 200ms + 500ms
                         // [P]ath: P speed|rudder {x,y,theta}...
                         std::cout << "P " << target.speed << '|' << target.rudder;
                         autolabor::odometry_t<> pose{};
-                        for (auto i = 0; i < 15; ++i) {
+                        for (auto i = 0; i < 20; ++i) {
                             for (auto j = 0; j < 5; ++j)
                                 if (!predictor(pose)) {
-                                    i = 15;
+                                    i = 20;
                                     break;
                                 }
                             std::cout << ' ' << static_cast<int>(pose.x * 1000)
