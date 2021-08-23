@@ -14,7 +14,7 @@ int main() {
     sockaddr_in remote{.sin_family = AF_INET, .sin_port = 33333};
     inet_pton(AF_INET, "6.0.0.3", &remote.sin_addr);
 
-    auto steering = steering_t::scan();
+    auto steering = logitech::steering_t::scan();
     if (!steering) return 0;
 
     uint8_t level;

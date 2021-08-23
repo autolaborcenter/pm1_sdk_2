@@ -7,7 +7,7 @@
 #include <thread>
 
 int main() {
-    auto steering = steering_t::scan();
+    auto steering = logitech::steering_t::scan();
     if (!steering) return 0;
 
     autolabor::pm1::predictor_t predictor;
