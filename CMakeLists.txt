@@ -4,8 +4,6 @@ project(pm1_sdk_2 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-if (UNIX)
-
 add_library(control_model
         src/control_model/pi.h
 
@@ -37,6 +35,8 @@ add_library(pm1
         src/chassis_t.cc)
 target_link_libraries(pm1 chassis_model)
 
+if (UNIX)
+
 find_package(Threads REQUIRED)
 
 add_library(pm1_linux
@@ -45,6 +45,9 @@ add_library(pm1_linux
         app/serial_linux.h
         app/serial_linux.cpp)
 target_link_libraries(pm1_linux pm1 pthread)
+
+add_executable(path_predictor_unix app/path_predictor.cpp)
+target_link_libraries(path_predictor_unix chassis_model)
 
 # 架构相关编译
 
@@ -82,5 +85,10 @@ add_executable(servo_test test/servo_test.cpp
         app/serial_linux.cpp)
 
 endif ()
+
+else ()
+
+add_executable(path_predictor_win app/path_predictor.cpp)
+target_link_libraries(path_predictor_win chassis_model)
 
 endif ()

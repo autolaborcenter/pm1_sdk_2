@@ -12,7 +12,8 @@ struct optimizer {
         ratio_tail_physical_speed,
         acceleration,
         period;
-} extern const default_optimizer;
+};
+extern const struct optimizer default_optimizer;
 
 /**
  * 控制量优化
