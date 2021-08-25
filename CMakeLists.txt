@@ -88,7 +88,7 @@ endif ()
 
 else ()
 
-add_executable(path_predictor_win app/path_predictor.cpp)
-target_link_libraries(path_predictor_win chassis_model)
+add_executable(path_predictor_win32 app/path_predictor.cpp)
+target_link_libraries(path_predictor_win32 chassis_model)
 
 endif ()
