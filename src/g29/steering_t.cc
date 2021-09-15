@@ -60,6 +60,10 @@ namespace logitech {
             return false;
         }
 
+        void sternway() {
+            _level = _level ? 0 : 1;
+        }
+
         bool sternway(int16_t value) {
             if (!_level && value > 16384) {
                 _level = 1;
@@ -165,14 +169,21 @@ namespace logitech {
                                     if (_value.level_up()) {
                                         _value.get(level, speed, rudder);
                                         update_ff({speed, rudder});
+                                        return true;
                                     }
-                                    return true;
+                                    break;
                                 case 5:
                                 case 20:
                                     if (_value.level_down()) {
                                         _value.get(level, speed, rudder);
                                         update_ff({speed, rudder});
+                                        return true;
                                     }
+                                    break;
+                                case 3:
+                                    _value.sternway();
+                                    _value.get(level, speed, rudder);
+                                    update_ff({speed, rudder});
                                     return true;
                             }
                         break;
@@ -184,11 +195,11 @@ namespace logitech {
                                 update_ff({speed, rudder});
                                 return true;
                             case 1:
-                                if (_value.sternway(event.value)) {
-                                    _value.get(level, speed, rudder);
-                                    update_ff({speed, rudder});
-                                    return true;
-                                }
+                                // if (_value.sternway(event.value)) {
+                                //     _value.get(level, speed, rudder);
+                                //     update_ff({speed, rudder});
+                                //     return true;
+                                // }
                                 break;
                             case 2:
                                 _value.set_power(event.value);
