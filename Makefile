@@ -3,7 +3,6 @@ build:
 	mkdir -p build/release
 	cd build/release \
 	&& cmake -DCMAKE_BUILD_TYPE=Release \
-	         -DCMAKE_C_COMPILE=/usr/bin/gcc-11 \
 			 -DCMAKE_CXX_COMPILER=/usr/bin/g++-11 \
 	   ../.. \
 	&& make -j2
@@ -13,7 +12,6 @@ debug:
 	mkdir -p build/debug
 	cd build/debug \
 	&& cmake -DCMAKE_BUILD_TYPE=Debug \
-	         -DCMAKE_C_COMPILE=/usr/bin/gcc-11 \
 			 -DCMAKE_CXX_COMPILER=/usr/bin/g++-11 \
 	   ../.. \
 	&& make -j2

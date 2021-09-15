@@ -32,7 +32,7 @@ namespace logitech {
     public:
         void get(uint8_t &level, float &speed, float &rudder) const {
             level = _level;
-            speed = (32767 - _power) * (_level ? _level : -1) / _max_level / 65536.0f;
+            speed = (32767 - _power) / 65536.0f;
             rudder = std::copysignf(std::pow(std::abs(_direction) / 32768.0f, 2.0f), _direction) * pi_f / 2;
         }
 
@@ -85,7 +85,8 @@ namespace logitech {
         }
 
         void update_ff(physical p) {
-            update_autocenter(0x2800 + 0x4000 * std::abs(physical_to_velocity(p, &_chassis).v));
+            update_autocenter(0x6000);
+            // update_autocenter(0x2800 + 0x4000 * std::abs(physical_to_velocity(p, &_chassis).v));
         }
 
     public:
