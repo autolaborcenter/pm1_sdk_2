@@ -19,7 +19,7 @@ namespace logitech {
         operator bool() const;
         void close();
 
-        bool wait_event(uint8_t &, float &, float &, int);
+        bool wait_event(int8_t &, float &, float &, int);
     };
 }// namespace logitech
 

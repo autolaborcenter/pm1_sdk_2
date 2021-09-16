@@ -25,12 +25,12 @@ namespace logitech {
         int16_t
             _direction = 0,
             _power = 32767;
-        uint8_t
+        int8_t
             _level = 1,
             _max_level = 5;
 
     public:
-        void get(uint8_t &level, float &speed, float &rudder) const {
+        void get(int8_t &level, float &speed, float &rudder) const {
             level = _level;
             speed = (32767 - _power) / 65536.0f;
             rudder = std::copysignf(std::pow(std::abs(_direction) / 32768.0f, 2.0f), _direction) * pi_f / 2;
@@ -61,7 +61,7 @@ namespace logitech {
         }
 
         void sternway() {
-            _level = _level ? 0 : 1;
+            _level = _level > 0 ? -1 : 1;
         }
 
         bool sternway(int16_t value) {
@@ -146,7 +146,7 @@ namespace logitech {
             ::close(std::exchange(_epoll, -1));
         }
 
-        bool wait_event(uint8_t &level, float &speed, float &rudder, int timeout) {
+        bool wait_event(int8_t &level, float &speed, float &rudder, int timeout) {
             while (true) {
                 js_event event{};
                 epoll_event epoll{};
@@ -220,7 +220,7 @@ namespace logitech {
     steering_t::operator bool() const { return _implement->operator bool(); }
     void steering_t::close() { _implement->close(); }
 
-    bool steering_t::wait_event(uint8_t &level, float &speed, float &rudder, int timeout) {
+    bool steering_t::wait_event(int8_t &level, float &speed, float &rudder, int timeout) {
         return _implement->wait_event(level, speed, rudder, timeout);
     }
 

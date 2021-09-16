@@ -74,12 +74,6 @@ target_link_libraries(g29_console_unix g29 pthread)
 
 # test
 
-add_executable(pm1_udp test/pm1_with_udp.cpp)
-target_link_libraries(pm1_udp pm1_linux)
-
-add_executable(g29_udp test/g29_with_udp.cpp)
-target_link_libraries(g29_udp g29)
-
 add_executable(servo_test test/servo_test.cpp
         app/serial_linux.h
         app/serial_linux.cpp)
