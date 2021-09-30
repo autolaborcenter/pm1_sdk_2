@@ -40,11 +40,17 @@ int main() {
                     std::unique_lock<decltype(mutex)> lock(mutex);
                     auto ptr = chassis.lock();
                     auto current = ptr->current();
-                    std::cout << "S "
-                              << +ptr->battery_percent() << ' '
-                              << current.speed << ' '
-                              << current.rudder << ' '
-                              << ptr->odometry().s << std::endl;
+                    auto odometry = ptr->odometry();
+                    std::cout
+                        << "S "
+                        << +ptr->battery_percent() << ' '
+                        << current.speed << ' '
+                        << current.rudder << ' '
+                        << odometry.s << ' '
+                        << odometry.a << ' '
+                        << odometry.x << ' '
+                        << odometry.y << ' '
+                        << odometry.theta << std::endl;
                 } break;
                 // [T]arget
                 case 'T': {
